@@ -28,13 +28,27 @@ FIRST_NODE="$(kind get nodes --name "$CLUSTER_NAME" | head -n 1)"
 
 # Keep this list in sync with the charts pinned in docs/VERSIONS.md.
 IMAGES=(
+  "quay.io/argoproj/argocd:v3.6.2"
+  "ecr-public.aws.com/docker/library/redis:8.6.4-alpine"
   "reg.kyverno.io/kyverno/kyverno:v1.20.0"
   "reg.kyverno.io/kyverno/background-controller:v1.20.0"
   "reg.kyverno.io/kyverno/cleanup-controller:v1.20.0"
   "reg.kyverno.io/kyverno/reports-controller:v1.20.0"
+  "reg.kyverno.io/kyverno/kyvernopre:v1.20.0"
   "registry.k8s.io/ingress-nginx/controller:v1.11.3@sha256:d56f135b6462cfc476447cfe564b83a45e8bb7da2774963b00d12161112270b7"
   "registry.k8s.io/ingress-nginx/kube-webhook-certgen:v20221220-controller-v1.5.1-58-g787ea74b6"
+  "quay.io/prometheus-operator/prometheus-operator:v0.77.2"
+  "quay.io/prometheus-operator/prometheus-config-reloader:v0.77.2"
+  "quay.io/prometheus/prometheus:v2.55.0"
+  "quay.io/prometheus/alertmanager:v0.27.0"
+  "registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.13.0"
   "quay.io/prometheus/node-exporter:v1.8.2"
+  "quay.io/kiwigrid/k8s-sidecar:1.28.0"
+  "docker.io/grafana/grafana:11.3.0"
+  "grafana/loki:2.6.1"
+  "docker.io/grafana/promtail:2.9.3"
+  "quay.io/argoproj/argo-rollouts:v1.7.2"
+  "quay.io/argoproj/kubectl-argo-rollouts:v1.7.2"
 )
 
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/platformbox-images.XXXXXX")"

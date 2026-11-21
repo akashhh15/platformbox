@@ -79,13 +79,27 @@ kind. They are pinned to the same versions the charts above render:
 
 | Image | Pin | Source |
 |---|---|---|
+| `quay.io/argoproj/argocd` | `v3.6.2` | Argo CD chart 10.18.2 |
+| `ecr-public.aws.com/docker/library/redis` | `8.6.4-alpine` | Argo CD chart 10.18.2 |
 | `reg.kyverno.io/kyverno/kyverno` | `v1.20.0` | Kyverno chart 3.10.0 |
 | `reg.kyverno.io/kyverno/background-controller` | `v1.20.0` | Kyverno chart 3.10.0 |
 | `reg.kyverno.io/kyverno/cleanup-controller` | `v1.20.0` | Kyverno chart 3.10.0 |
 | `reg.kyverno.io/kyverno/reports-controller` | `v1.20.0` | Kyverno chart 3.10.0 |
+| `reg.kyverno.io/kyverno/kyvernopre` | `v1.20.0` | Kyverno chart 3.10.0 init container |
 | `registry.k8s.io/ingress-nginx/controller` | `v1.11.3@sha256:d56f135b6462cfc476447cfe564b83a45e8bb7da2774963b00d12161112270b7` | ingress-nginx chart 4.11.3 |
 | `registry.k8s.io/ingress-nginx/kube-webhook-certgen` | `v20221220-controller-v1.5.1-58-g787ea74b6` | ingress-nginx chart 4.11.3 |
+| `quay.io/prometheus-operator/prometheus-operator` | `v0.77.2` | kube-prometheus-stack 65.8.1 |
+| `quay.io/prometheus-operator/prometheus-config-reloader` | `v0.77.2` | kube-prometheus-stack 65.8.1 |
+| `quay.io/prometheus/prometheus` | `v2.55.0` | kube-prometheus-stack 65.8.1 |
+| `quay.io/prometheus/alertmanager` | `v0.27.0` | kube-prometheus-stack 65.8.1 |
+| `registry.k8s.io/kube-state-metrics/kube-state-metrics` | `v2.13.0` | kube-prometheus-stack 65.8.1 |
 | `quay.io/prometheus/node-exporter` | `v1.8.2` | kube-prometheus-stack 65.8.1 |
+| `quay.io/kiwigrid/k8s-sidecar` | `1.28.0` | kube-prometheus-stack 65.8.1 |
+| `docker.io/grafana/grafana` | `11.3.0` | kube-prometheus-stack 65.8.1 |
+| `grafana/loki` | `2.6.1` | Loki stack chart 2.10.2 |
+| `docker.io/grafana/promtail` | `2.9.3` | Loki stack chart 2.10.2 |
+| `quay.io/argoproj/argo-rollouts` | `v1.7.2` | Argo Rollouts chart 2.38.0 |
+| `quay.io/argoproj/kubectl-argo-rollouts` | `v1.7.2` | Argo Rollouts chart 2.38.0 dashboard |
 
 Kyverno chart 3.3.7 was rejected: it ships Kyverno 1.13.4, which cannot execute
 the CEL `ValidatingPolicy` resources used here. 3.10.0 ships 1.20.0, matching
