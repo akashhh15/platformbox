@@ -12,6 +12,8 @@ resources:
 # Kubernetes annotation limit. Client-side apply stores the whole manifest in
 # kubectl.kubernetes.io/last-applied-configuration and fails on those CRDs.
 # Server-side apply uses managedFields instead, so every Application needs it.
+# Argo CD 3.5+ also tries a client-side migration patch before the apply; that
+# regression hits the same limit, so migration is disabled until it is fixed.
 # See docs/adr/ADR-011-argocd-server-side-apply.md.
 patches:
   - target:
@@ -26,3 +28,4 @@ patches:
           syncOptions:
             - CreateNamespace=true
             - ServerSideApply=true
+            - ClientSideApplyMigration=false
