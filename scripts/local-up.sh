@@ -38,10 +38,13 @@ echo "    from gitops/platform, so there is a single source of truth."
 kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
 helm repo add argo https://argoproj.github.io/argo-helm >/dev/null 2>&1 || true
 helm repo update >/dev/null 2>&1 || true
+# Dex is SSO only. Disabling it keeps the local demo on the built-in admin
+# user and avoids pulling an extra image from ghcr.io on slow networks.
 helm upgrade --install argocd argo/argo-cd \
   --version 10.18.2 \
   --namespace argocd \
   --set server.service.type=ClusterIP \
+  --set dex.enabled=false \
   --wait --timeout 300s
 
 echo "==> Applying AppProjects"
@@ -49,6 +52,18 @@ kubectl apply -f "$ROOT/gitops/projects/"
 
 echo "==> Applying Argo CD root application"
 kubectl apply -f "$ROOT/gitops/bootstrap/root-app.yaml"
+
+# The committed manifest follows `main`. While a phase branch is under review,
+# follow it instead so `make local-up` deploys the manifests in this checkout.
+# Without this, a missing path on main renders as a healthy but empty app.
+BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo main)"
+if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+  echo "    root app will follow branch '$BRANCH' (present on origin)"
+  kubectl patch application root -n argocd --type merge \
+    -p "{\"spec\":{\"source\":{\"targetRevision\":\"$BRANCH\"}}}"
+else
+  echo "    branch '$BRANCH' is not on origin; root app follows 'main'"
+fi
 
 echo ""
 echo "==> Local platform is up."

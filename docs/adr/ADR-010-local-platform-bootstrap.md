@@ -54,9 +54,11 @@ Argo CD's root app because they are bootstrap RBAC boundaries, not workloads.
 
 - `make local-up` is short and idempotent; `make local-down` removes the whole
   cluster, so no local state survives.
-- Argo CD needs the child manifests on the `main` branch. Until the Phase 3
-  pull request is merged, the root Application will report that the source
-  path is missing. This is expected and documented in `docs/SETUP.md`.
+- The committed root Application follows `main`. While a phase branch is under
+  review, `local-up.sh` patches the target revision to the current branch if it
+  exists on `origin`, so the branch's manifests are really deployed. Without
+  that patch, a missing source path renders as a healthy but empty Application,
+  which hides the problem. After merge, running from `main` needs no patch.
 - The only credential in the platform charts is the local Grafana demo
   password, which is intentionally public because it never leaves kind.
 - Chart versions are pinned in `gitops/platform/*.yaml` and recorded in

@@ -127,10 +127,16 @@ Argo Rollouts — is synced by Argo CD from `gitops/platform`. Do not install an
 of those directly; there is a single source of truth. See
 [ADR-010](adr/ADR-010-local-platform-bootstrap.md).
 
-**The root app reads `main`.** Until the Phase 3 pull request is merged, Argo CD
-will report that `gitops/platform` is missing on `main`. That is expected.
-After merging, run `make local-up` again (or refresh the `root` application) to
-complete the sync.
+**Which revision is deployed.** The committed root Application follows `main`.
+When you run `local-up` from a branch that exists on `origin`, the script points
+the root app at that branch so the manifests in your checkout are deployed.
+After the pull request is merged, running from `main` restores the committed
+behaviour. A missing source path renders as a *healthy but empty* Application,
+so check that the six child Applications exist:
+
+```bash
+kubectl get applications -n argocd
+```
 
 ### Accessing the platform
 
