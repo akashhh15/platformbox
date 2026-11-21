@@ -28,7 +28,10 @@ def test_list_items_empty(client: TestClient) -> None:
 def test_create_item(client: TestClient) -> None:
     engine, conn = _mock_engine()
     redis_mock = MagicMock()
-    with patch("routes.items.get_engine", return_value=engine), patch("routes.items.get_redis", return_value=redis_mock):
+    with (
+        patch("routes.items.get_engine", return_value=engine),
+        patch("routes.items.get_redis", return_value=redis_mock),
+    ):
         response = client.post("/items", json={"name": "widget", "description": "a widget"})
     assert response.status_code == 201
     body = response.json()
