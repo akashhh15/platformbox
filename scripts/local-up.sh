@@ -40,11 +40,15 @@ helm repo add argo https://argoproj.github.io/argo-helm >/dev/null 2>&1 || true
 helm repo update >/dev/null 2>&1 || true
 # Dex is SSO only. Disabling it keeps the local demo on the built-in admin
 # user and avoids pulling an extra image from ghcr.io on slow networks.
+# The repo-server timeouts give large Helm charts (kube-prometheus-stack)
+# enough time to download on slow networks; the defaults are 60s/90s.
 helm upgrade --install argocd argo/argo-cd \
   --version 10.18.2 \
   --namespace argocd \
   --set server.service.type=ClusterIP \
   --set dex.enabled=false \
+  --set-json 'configs.params={"server.repo.server.timeout.seconds":"300","controller.repo.server.timeout.seconds":"300"}' \
+  --set-json 'repoServer.env=[{"name":"ARGOCD_EXEC_TIMEOUT","value":"300s"}]' \
   --wait --timeout 300s
 
 echo "==> Applying AppProjects"
