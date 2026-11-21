@@ -7,7 +7,7 @@
 | 0 — Repository foundation | Complete — awaiting review | Skeleton, Makefile, pre-commit, docs, ADRs; `make check` passes |
 | 1 — Terraform foundation | Complete — awaiting review | Bootstrap, 8 modules, dev/prod environments, 4 ADRs; fmt/validate/tflint/checkov/trivy/test pass |
 | 2 — Application and containers | Complete — awaiting review | FastAPI api/worker, static frontend, compose; ruff/pytest/hadolint pass; images build |
-| 3 — GitOps and platform layer | Complete — live cluster start pending host disk | kind config, Argo CD app-of-apps, ingress, CEL policies, monitoring, logging, rollouts; `make check` passes; Docker host disk full blocks `make local-up` |
+| 3 — GitOps and platform layer | Complete — final clean rebuild paused overnight | kind config, Argo CD app-of-apps, ingress, CEL policies, monitoring, logging, rollouts; `make check` passes; slow images preloaded locally; clean rebuild paused at 9/21 images and must be rerun tomorrow |
 | 4 — Application delivery | Not started | Kustomize base and dev/staging/prod overlays |
 | 5 — CI/CD | Not started | GitHub Actions and GitLab CI, SBOM, signing, write-back |
 | 6 — DevSecOps and policy | Not started | Kyverno policies and tests, threat model |
@@ -49,6 +49,9 @@ runtime is a local `kind` cluster; AWS Terraform is validated with
 | 2026-11-21 | Argo CD app-of-apps bootstrap; Argo CD manages all platform components, including ingress | ADR-010 |
 | 2026-11-21 | Kyverno chart 3.10.0 (app 1.20.0) to match CLI; all Phase 3 charts pinned | docs/VERSIONS.md |
 | 2026-11-21 | Checkov skips test fixture directories; those pods model policy edge cases | .checkov.yaml |
+| 2026-11-21 | Argo CD server-side apply with client-side migration disabled for large CRDs | ADR-011 |
+| 2026-11-21 | Kyverno upgrade hooks disabled on the disposable local cluster | ADR-012 |
+| 2026-11-21 | Slow third-party images are pulled on the host and preloaded into kind | scripts/preload-images.sh, docs/VERSIONS.md |
 
 ## Open items
 
@@ -59,11 +62,14 @@ runtime is a local `kind` cluster; AWS Terraform is validated with
   receiver until it is (Phase 7).
 - The optional AWS path has no account, budget e-mail or OIDC roles. This is
   intentional and costs nothing.
-- The C: drive is full, so Docker Desktop's metadata is read-only. The kind
-  cluster could not be created. Host cleanup and a Docker restart are required;
-  no project file depends on this.
-- The root Argo CD Application reads `main`. The Phase 3 pull request must be
-  merged before the platform apps can sync.
+- Docker's data disk was moved from C: to D: with a junction. C: now has about
+  12 GB free and the kind cluster starts normally.
+- The Phase 3 pull request is open as a draft. It must be marked ready, approved
+  and merged through GitHub before `main` contains these fixes.
+- The final clean `local-down`/`local-up` was paused overnight at 9 of 21
+  preloaded images. Argo CD was not installed yet, so no Applications existed.
+  Rerun `make local-down` then `make local-up` from a clean state tomorrow and
+  confirm all six platform Applications are `Synced` and `Healthy`.
 
 ## Human tasks
 
@@ -71,18 +77,21 @@ These are the tasks only the repository owner can complete. Full instructions
 are in [docs/SETUP.md](docs/SETUP.md).
 
 - [x] Start Docker Desktop before running kind or Docker builds.
+- [x] Move the Docker data disk from C: to D: and restart Docker Desktop.
 - [x] Configure Git identity: `git config --global user.name "..."` and
   `git config --global user.email "..."`.
 - [x] Create the GitHub repository, push `main`, and enable branch protection.
 - [x] Replace `@REPLACE_ME` in `.github/CODEOWNERS` with the real owner.
 - [ ] Create the GitLab project and mirror credentials when Phase 5 starts.
 - [ ] Supply the Slack webhook through a secret, never through Git.
+- [ ] After final verification, mark the Phase 3 PR ready and merge it through
+  GitHub. Do not push directly to `main`.
 - [ ] Do **not** run `make aws-apply` unless you explicitly want a paid AWS
   demo. The local path costs $0.
 
 ## Phase log
 
-### 2026-11-21 — Phase 3 complete (live cluster start pending host disk)
+### 2026-11-21 — Phase 3 implemented
 
 - Added `kind-config.yaml` with host ports 80/443, the `ingress-ready=true`
   label and two worker nodes.
@@ -106,6 +115,31 @@ are in [docs/SETUP.md](docs/SETUP.md).
   returned `read-only file system` when creating worker containers because C:
   was 100% full. No Kubernetes resources were created. This is a host
   environment issue, not a project defect; see `docs/SETUP.md`.
+- No AWS resources created.
+
+### 2026-11-21 — Phase 3 verification fixes
+
+- Diagnosed a Kyverno sync failure caused by CRDs larger than the 262144-byte
+  Kubernetes annotation limit. Added `ServerSideApply=true` and
+  `ClientSideApplyMigration=false` to all platform Applications; ADR-011.
+- Diagnosed a second stall caused by Kyverno's post-upgrade migration Job.
+  Disabled `upgrade.legacyPolicyCheck` and `migration` for the disposable local
+  cluster; ADR-012.
+- Added `scripts/preload-images.sh` and wired it into `local-up.sh`. It pulls
+  every pinned runtime image on the host and loads it into every kind node,
+  preserving `@sha256:` pins in the archive manifest.
+- Raised Argo CD repo-server and exec timeouts to 300 seconds for slow chart
+  downloads, and disabled Dex for the local demo.
+- Re-preloading a busy cluster saturated the Docker disk; etcd logged
+  `slow fdatasync` and control-plane leader leases were briefly lost. The
+  helper is documented to run before platform apps start, and `local-up` already
+  does that. A clean rebuild is the recovery path.
+- `make check` passed: all pre-commit hooks, `gitops-validate`, gitleaks,
+  checkov (194 Terraform and 131 Dockerfile checks pass, 0 fail) and 15 tests.
+- A final clean `local-down`/`local-up` was started with no competing disk work.
+  It was paused by the human at 9 of 21 preloaded images because it was after
+  midnight; Argo CD had not been installed and no Applications existed yet.
+  Resume tomorrow with a fresh `make local-down` and `make local-up`.
 - No AWS resources created.
 
 ### 2026-11-21 — Phase 2 complete
