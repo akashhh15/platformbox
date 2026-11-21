@@ -1,0 +1,22 @@
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: require-probes
+  annotations:
+    policies.kyverno.io/title: Require liveness and readiness probes
+    policies.kyverno.io/category: Best Practices
+    policies.kyverno.io/severity: medium
+spec:
+  validationActions: ["Deny"]
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods"]
+  matchConditions:
+    - name: app-namespace
+      expression: "object.metadata.?namespace.orValue('').startsWith('app-')"
+  validations:
+    - expression: "object.spec.containers.all(c, has(c.livenessProbe) && has(c.readinessProbe))"
+      message: "Containers must define liveness and readiness probes."

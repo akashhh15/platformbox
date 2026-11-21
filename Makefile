@@ -47,9 +47,8 @@ lint: ## Run all linters and format checks
 	@echo "==> Linting (pre-commit)"
 	pre-commit run --all-files
 
-validate: ## Validate Terraform, Kubernetes and GitOps manifests
-	@echo "Not implemented until Phase 1 (Terraform) and Phase 3/4 (GitOps manifests)."
-	@exit 0
+validate: gitops-validate ## Validate Terraform, Kubernetes and GitOps manifests
+	@echo "==> All validation gates passed."
 
 scan: ## Run secret and IaC security scans
 	@echo "==> Secret scan (gitleaks)"
@@ -73,10 +72,10 @@ check: lint validate scan test ## Run every quality gate (the phase definition o
 ##@ Local platform (zero cost)
 
 local-up: ## Create the local kind cluster and install the platform
-	@echo "Not implemented until Phase 3 (kind cluster and platform layer)."
+	@bash scripts/local-up.sh
 
 local-down: ## Delete the local kind cluster
-	@echo "Not implemented until Phase 3 (kind cluster and platform layer)."
+	@bash scripts/local-down.sh
 
 up: ## Create the local platform after an explicit confirmation
 	@printf '%s\n' "This will create a local kind cluster and install the platform."
@@ -96,7 +95,17 @@ demo: ## Run the five-minute local demo
 ##@ Validation and optional AWS path
 
 gitops-validate: ## Render and validate every Kustomize overlay and Helm chart
-	@echo "Not implemented until Phase 3 (platform) and Phase 4 (application delivery)."
+	@echo "==> Kustomize build: bootstrap"
+	@kustomize build gitops/bootstrap >/dev/null
+	@echo "==> Kustomize build: platform"
+	@kustomize build gitops/platform >/dev/null
+	@echo "==> Kustomize build: kyverno-policies"
+	@kustomize build gitops/platform/kyverno-policies >/dev/null
+	@echo "==> Kubeconform: platform manifests"
+	@kustomize build gitops/platform | kubeconform -summary -strict -skip 'Application,ValidatingPolicy' >/dev/null
+	@echo "==> Kyverno policy validation"
+	@kyverno apply gitops/platform/kyverno-policies/ -r apps/api/tests/fixtures/sample-pod.yaml >/dev/null
+	@echo "==> All GitOps manifests valid."
 
 aws-plan: ## Optional: plan the AWS production path (creates no resources)
 	@echo "Not implemented until Phase 1 (Terraform)."
