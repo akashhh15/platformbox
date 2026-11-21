@@ -32,6 +32,9 @@ else
   kind create cluster --config "$KIND_CONFIG" --wait 120s
 fi
 
+echo "==> Preloading slow container images"
+bash "$ROOT/scripts/preload-images.sh" "$CLUSTER_NAME"
+
 echo "==> Installing Argo CD"
 echo "    ingress-nginx and the rest of the platform are synced by Argo CD"
 echo "    from gitops/platform, so there is a single source of truth."

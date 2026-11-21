@@ -118,9 +118,12 @@ The script is deliberately short. It performs only the steps Argo CD cannot do
 for itself:
 
 1. Creates the `platformbox` kind cluster from `kind-config.yaml`.
-2. Installs Argo CD with Helm, pinned in `scripts/local-up.sh`.
-3. Applies the two `AppProject` resources from `gitops/projects`.
-4. Applies the root `Application` from `gitops/bootstrap/root-app.yaml`.
+2. Preloads the slow third-party images with `scripts/preload-images.sh`. The
+   script pulls them on the host, where the network is more reliable, then loads
+   them into every kind node. It preserves `@sha256:` pins when a chart uses one.
+3. Installs Argo CD with Helm, pinned in `scripts/local-up.sh`.
+4. Applies the two `AppProject` resources from `gitops/projects`.
+5. Applies the root `Application` from `gitops/bootstrap/root-app.yaml`.
 
 Everything else — ingress-nginx, Kyverno, the policies, monitoring, logging and
 Argo Rollouts — is synced by Argo CD from `gitops/platform`. Do not install any
@@ -341,6 +344,33 @@ disk is full. Free space on the host drive first, restart Docker Desktop, then
 remove unused images and caches with `docker system prune` before retrying.
 The kind node image is large (~1.3 GB unpacked); keep at least 5 GB free on the
 drive that holds the Docker data.
+
+### A platform pod is stuck in `ImagePullBackOff`
+
+Some registries are slow from the kind node network. `make local-up` preloads
+the images listed in `scripts/preload-images.sh`, so a fresh cluster should not
+need to pull them at pod start. If a pod still reports `ImagePullBackOff`, run
+the helper again:
+
+```bash
+bash scripts/preload-images.sh platformbox
+```
+
+The script is idempotent: it skips images already present on the first node.
+For an image digest pin, it records the digest in the archive manifest so the
+kubelet resolves the local copy instead of contacting the registry.
+
+### Argo CD reports `metadata.annotations: Too long` on a CRD
+
+Kyverno ships CRDs larger than the 262144-byte Kubernetes annotation limit.
+All platform Applications set `ServerSideApply=true` and
+`ClientSideApplyMigration=false` through
+`gitops/platform/kustomization.yaml`. Do not remove those options. See
+[ADR-011](adr/ADR-011-argocd-server-side-apply.md).
+
+If a sync waits on `kyverno-migrate-resources`, the Kyverno upgrade hooks are
+still enabled. They are disabled in `gitops/platform/kyverno.yaml` because the
+local cluster starts empty; see [ADR-012](adr/ADR-012-disable-kyverno-migration-hooks-locally.md).
 
 ## 11. Security notes
 

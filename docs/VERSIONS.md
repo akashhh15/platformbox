@@ -73,6 +73,20 @@ manifests under `gitops/platform/`; Argo CD is pinned in `scripts/local-up.sh`.
 | Loki stack (`grafana/loki-stack`) | 2.10.2 | v2.9.3 | `gitops/platform/logging.yaml` |
 | Argo Rollouts chart (`argo/argo-rollouts`) | 2.38.0 | v1.7.2 | `gitops/platform/argo-rollouts.yaml` |
 
+The following images are pulled on the host and preloaded into every kind node
+by `scripts/preload-images.sh` because their registries are slow from inside
+kind. They are pinned to the same versions the charts above render:
+
+| Image | Pin | Source |
+|---|---|---|
+| `reg.kyverno.io/kyverno/kyverno` | `v1.20.0` | Kyverno chart 3.10.0 |
+| `reg.kyverno.io/kyverno/background-controller` | `v1.20.0` | Kyverno chart 3.10.0 |
+| `reg.kyverno.io/kyverno/cleanup-controller` | `v1.20.0` | Kyverno chart 3.10.0 |
+| `reg.kyverno.io/kyverno/reports-controller` | `v1.20.0` | Kyverno chart 3.10.0 |
+| `registry.k8s.io/ingress-nginx/controller` | `v1.11.3@sha256:d56f135b6462cfc476447cfe564b83a45e8bb7da2774963b00d12161112270b7` | ingress-nginx chart 4.11.3 |
+| `registry.k8s.io/ingress-nginx/kube-webhook-certgen` | `v20221220-controller-v1.5.1-58-g787ea74b6` | ingress-nginx chart 4.11.3 |
+| `quay.io/prometheus/node-exporter` | `v1.8.2` | kube-prometheus-stack 65.8.1 |
+
 Kyverno chart 3.3.7 was rejected: it ships Kyverno 1.13.4, which cannot execute
 the CEL `ValidatingPolicy` resources used here. 3.10.0 ships 1.20.0, matching
 the pinned Kyverno CLI. See [ADR-009](adr/ADR-009-cel-based-kyverno-policies.md).

@@ -26,6 +26,10 @@ spec:
           # extra image and blocks the sync on slow networks.
           legacyPolicyCheck:
             enabled: false
+        migration:
+          # On a fresh cluster there are no old CRD versions to migrate. This
+          # post-upgrade hook pulls kyverno-cli and stalls slow local networks.
+          enabled: false
   destination:
     server: https://kubernetes.default.svc
     namespace: kyverno
