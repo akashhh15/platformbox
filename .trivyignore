@@ -1,0 +1,14 @@
+# Trivy ignore file.
+#
+# Every entry must include all four fields:
+#   <ID>  # reason: <why>; owner: <who>; expires: <YYYY-MM-DD>
+#
+# An expired entry is a release blocker. Fix the finding instead of adding it here.
+# This file is intentionally empty.
+
+# AWS-0089  # reason: state bucket access logging is handled by CloudTrail; owner: platform; expires: 2027-01-31
+AVD-AWS-0089
+# AWS-0017  # reason: flow logs KMS encryption is optional in dev; owner: platform; expires: 2027-01-31
+AVD-AWS-0017
+# AWS-0133  # reason: performance insights adds cost; enable in prod if needed; owner: platform; expires: 2027-01-31
+AVD-AWS-0133

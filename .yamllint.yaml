@@ -1,0 +1,19 @@
+---
+extends: default
+
+rules:
+  line-length:
+    max: 120
+    level: error
+  truthy:
+    allowed-values: ["true", "false", "on"]
+  comments:
+    min-spaces-from-content: 1
+  comments-indentation: false
+  document-start: disable
+
+ignore: |
+  .venv/
+  tools/
+  node_modules/
+  .git/

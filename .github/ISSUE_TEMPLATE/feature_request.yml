@@ -1,0 +1,43 @@
+name: Feature request
+description: Propose a change that is inside the current phase or explicitly requested.
+title: "[feature]: "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This project is built in phases. Describe the problem first, then the
+        smallest change that solves it. Features outside the current phase may
+        be deferred to the backlog.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is painful or missing today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: What should happen instead?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: textarea
+    id: cost
+    attributes:
+      label: Cost and security impact
+      description: Does this add AWS cost, new permissions, or new images?
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submission checks
+      options:
+        - label: I checked the phase plan in PROGRESS.md.
+          required: true
+        - label: I removed secrets and personal data.
+          required: true

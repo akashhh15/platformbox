@@ -1,0 +1,11 @@
+# Python tooling for the repository itself.
+# Application dependencies are locked separately under apps/*/requirements*.txt.
+#
+# pytest is pinned to 8.x on purpose: pytest 9 requires packaging>=24, while
+# checkov 3.4.6 requires packaging<24. Installing both in one environment is
+# impossible, and a single toolchain environment is simpler than two venvs.
+pre-commit==4.7.0
+ruff==0.17.6
+pytest==8.4.2
+yamllint==1.38.0
+checkov==3.4.6

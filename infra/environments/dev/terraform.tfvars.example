@@ -1,0 +1,13 @@
+# Example values for the dev environment.
+# Copy to terraform.tfvars and fill in the real values. Never commit terraform.tfvars.
+
+project            = "cloud-platform-in-a-box"
+environment        = "dev"
+aws_region         = "ap-south-1"
+vpc_cidr           = "10.0.0.0/16"
+cluster_version    = "1.31"
+public_access_cidrs = ["0.0.0.0/0"] # Restrict to your IP in real use.
+budget_email       = "REPLACE_ME_EMAIL"
+budget_limit_usd   = 50
+rds_enabled        = true
+tags               = {}

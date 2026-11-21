@@ -1,0 +1,15 @@
+---
+directory:
+  - .
+quiet: true
+compact: true
+framework:
+  - terraform
+  - kubernetes
+  - dockerfile
+  - github_actions
+skip-path:
+  - .git
+  - .venv
+  - tools
+  - node_modules

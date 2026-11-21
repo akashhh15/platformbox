@@ -1,0 +1,16 @@
+# Gitleaks configuration.
+#
+# The default ruleset is intentionally kept. Add an allowlist entry only when a
+# finding is a verified false positive, and include a reason and an expiry date
+# in the description. Never allowlist a real credential.
+
+title = "Cloud Platform in a Box"
+
+[extend]
+useDefault = true
+
+# Example of a documented, time-bounded allowlist entry:
+# [[allowlists]]
+# description = "False positive: documentation example; owner: platform; expires: 2027-01-31"
+# paths = ['''docs/example\.md''']
+# regexes = ['''EXAMPLE_KEY_PLACEHOLDER''']
