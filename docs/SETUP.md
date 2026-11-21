@@ -229,6 +229,23 @@ the absolute path of `bash.exe` and restart the session.
 Start Docker Desktop and wait for the whale icon to become stable. Then run
 `docker info`. kind, image builds and docker compose all need it.
 
+### `gitleaks` not found during `git commit`
+
+The pre-commit hook calls `gitleaks` directly, which is not on the system
+PATH by default. Export it before committing:
+
+    export PATH="/d/Devops Projects/tools/bin:$PATH"
+
+The Makefile already prepends `tools/bin` for its own targets, so this is only
+needed for raw `git commit`.
+
+### `terraform init` fails with "not enough space on the disk"
+
+The C: drive in this environment is small. Point Terraform's temp directory at
+the D: drive before init:
+
+    export TMP="D:/tmp"; export TEMP="D:/tmp"
+    mkdir -p D:/tmp
 ### Python opens the Microsoft Store
 
 The `python3` alias on Windows can point to the Store stub. Use `python` (the
