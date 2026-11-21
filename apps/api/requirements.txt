@@ -1,0 +1,12 @@
+fastapi==0.165.0
+uvicorn==0.54.0
+pydantic==2.14.4
+pydantic-settings==2.16.3
+httpx==0.28.1
+sqlalchemy==2.1.9
+psycopg[binary]==3.3.9
+redis==8.1.0
+prometheus-client==0.26.0
+prometheus-fastapi-instrumentator==8.1.0
+python-json-logger==4.2.0
+tenacity==9.2.1

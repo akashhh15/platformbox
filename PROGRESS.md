@@ -6,7 +6,7 @@
 |---|---|---|
 | 0 — Repository foundation | Complete — awaiting review | Skeleton, Makefile, pre-commit, docs, ADRs; `make check` passes |
 | 1 — Terraform foundation | Complete — awaiting review | Bootstrap, 8 modules, dev/prod environments, 4 ADRs; fmt/validate/tflint/checkov/trivy/test pass |
-| 2 — Application and containers | Not started | FastAPI api/worker, static frontend, compose |
+| 2 — Application and containers | Complete — awaiting review | FastAPI api/worker, static frontend, compose; ruff/pytest/hadolint pass; images build |
 | 3 — GitOps and platform layer | Not started | Local kind cluster, Argo CD, ingress-nginx, policy, observability |
 | 4 — Application delivery | Not started | Kustomize base and dev/staging/prod overlays |
 | 5 — CI/CD | Not started | GitHub Actions and GitLab CI, SBOM, signing, write-back |
@@ -48,12 +48,11 @@ runtime is a local `kind` cluster; AWS Terraform is validated with
 
 ## Open items
 
-- Docker Desktop is installed but its daemon is not running; local builds and
-  kind need it.
-- Git `user.name` and `user.email` are not configured on this machine.
-- The GitHub repository, GitLab project and branch protection are not created.
+- Git `user.name` and `user.email` are configured on this machine (no-reply).
+- The GitHub repository and branch protection are configured.
+- The GitLab project and mirror credentials are not created (Phase 5).
 - The Slack incoming webhook is not supplied yet; Alertmanager will use a null
-  receiver until it is.
+  receiver until it is (Phase 7).
 - The optional AWS path has no account, budget e-mail or OIDC roles. This is
   intentional and costs nothing.
 
@@ -73,6 +72,22 @@ are in [docs/SETUP.md](docs/SETUP.md).
   demo. The local path costs $0.
 
 ## Phase log
+
+### 2026-11-21 — Phase 2 complete
+
+- Built `apps/api`: FastAPI service with health/ready/metrics/items endpoints,
+  structured JSON logging, pydantic-settings, Postgres + Redis clients with
+  retry, SQLAlchemy models, Prometheus instrumentation.
+- Built `apps/worker`: FastAPI service with health/ready/metrics/stats and a
+  background Redis-list consumer loop with graceful shutdown.
+- Built `apps/frontend`: static HTML/CSS/JS served by nginx, with security
+  headers and healthcheck.
+- Added `apps/docker-compose.yml` wiring postgres, redis, api, worker, frontend.
+- Multi-stage Dockerfiles (non-root UID 1000, read-only-friendly, hadolint clean).
+- Added `sql/init.sql` for the items table.
+- Tests: 9 (api) + 6 (worker) passing; ruff clean; hadolint clean; yamllint
+  clean; all three images build and smoke-tested (health endpoints return 200).
+- No AWS resources created.
 
 ### 2026-11-21 — Phase 1 complete
 

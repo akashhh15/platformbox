@@ -62,9 +62,9 @@ scan: ## Run secret and IaC security scans
 	@bash scripts/checkov.sh -d . --compact --quiet
 
 test: ## Run unit and integration tests
-	@if [ -d apps/api/tests ] || [ -d apps/worker/tests ]; then \
-		pytest -q apps; \
-	else \
+	@if [ -d apps/api/tests ]; then (cd apps/api && PYTHONPATH=src pytest -q); fi
+	@if [ -d apps/worker/tests ]; then (cd apps/worker && PYTHONPATH=src pytest -q); fi
+	@if [ ! -d apps/api/tests ] && [ ! -d apps/worker/tests ]; then \
 		echo "Not implemented until Phase 2 (application tests)."; \
 	fi
 
