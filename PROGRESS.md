@@ -7,7 +7,7 @@
 | 0 — Repository foundation | Complete — awaiting review | Skeleton, Makefile, pre-commit, docs, ADRs; `make check` passes |
 | 1 — Terraform foundation | Complete — awaiting review | Bootstrap, 8 modules, dev/prod environments, 4 ADRs; fmt/validate/tflint/checkov/trivy/test pass |
 | 2 — Application and containers | Complete — awaiting review | FastAPI api/worker, static frontend, compose; ruff/pytest/hadolint pass; images build |
-| 3 — GitOps and platform layer | Not started | Local kind cluster, Argo CD, ingress-nginx, policy, observability |
+| 3 — GitOps and platform layer | Complete — live cluster start pending host disk | kind config, Argo CD app-of-apps, ingress, CEL policies, monitoring, logging, rollouts; `make check` passes; Docker host disk full blocks `make local-up` |
 | 4 — Application delivery | Not started | Kustomize base and dev/staging/prod overlays |
 | 5 — CI/CD | Not started | GitHub Actions and GitLab CI, SBOM, signing, write-back |
 | 6 — DevSecOps and policy | Not started | Kyverno policies and tests, threat model |
@@ -45,6 +45,10 @@ runtime is a local `kind` cluster; AWS Terraform is validated with
 | 2026-11-21 | Single NAT gateway in dev, HA in prod | ADR-007 |
 | 2026-11-21 | S3 native state locking, no DynamoDB | ADR-008 |
 | 2026-11-21 | pytest pinned to 8.4.2 because pytest 9 needs `packaging>=24` and checkov 3.4.6 pins `packaging<24` | requirements-dev.txt, docs/VERSIONS.md |
+| 2026-11-21 | Kyverno 1.20 CEL `ValidatingPolicy` instead of legacy `ClusterPolicy` | ADR-009 |
+| 2026-11-21 | Argo CD app-of-apps bootstrap; Argo CD manages all platform components, including ingress | ADR-010 |
+| 2026-11-21 | Kyverno chart 3.10.0 (app 1.20.0) to match CLI; all Phase 3 charts pinned | docs/VERSIONS.md |
+| 2026-11-21 | Checkov skips test fixture directories; those pods model policy edge cases | .checkov.yaml |
 
 ## Open items
 
@@ -55,23 +59,54 @@ runtime is a local `kind` cluster; AWS Terraform is validated with
   receiver until it is (Phase 7).
 - The optional AWS path has no account, budget e-mail or OIDC roles. This is
   intentional and costs nothing.
+- The C: drive is full, so Docker Desktop's metadata is read-only. The kind
+  cluster could not be created. Host cleanup and a Docker restart are required;
+  no project file depends on this.
+- The root Argo CD Application reads `main`. The Phase 3 pull request must be
+  merged before the platform apps can sync.
 
 ## Human tasks
 
 These are the tasks only the repository owner can complete. Full instructions
 are in [docs/SETUP.md](docs/SETUP.md).
 
-- [ ] Start Docker Desktop before running kind or Docker builds.
-- [ ] Configure Git identity: `git config --global user.name "..."` and
+- [x] Start Docker Desktop before running kind or Docker builds.
+- [x] Configure Git identity: `git config --global user.name "..."` and
   `git config --global user.email "..."`.
-- [ ] Create the GitHub repository, push `main`, and enable branch protection.
-- [ ] Replace `@REPLACE_ME` in `.github/CODEOWNERS` with the real owner.
+- [x] Create the GitHub repository, push `main`, and enable branch protection.
+- [x] Replace `@REPLACE_ME` in `.github/CODEOWNERS` with the real owner.
 - [ ] Create the GitLab project and mirror credentials when Phase 5 starts.
 - [ ] Supply the Slack webhook through a secret, never through Git.
 - [ ] Do **not** run `make aws-apply` unless you explicitly want a paid AWS
   demo. The local path costs $0.
 
 ## Phase log
+
+### 2026-11-21 — Phase 3 complete (live cluster start pending host disk)
+
+- Added `kind-config.yaml` with host ports 80/443, the `ingress-ready=true`
+  label and two worker nodes.
+- Added `scripts/local-up.sh` and `scripts/local-down.sh`; `make up`/`make down`
+  wrap them with explicit confirmation. `local-up` creates the cluster, installs
+  pinned Argo CD, applies AppProjects and the root Application.
+- Added the Argo CD app-of-apps: `gitops/bootstrap/root-app.yaml` points at
+  `gitops/platform`; AppProjects live in `gitops/projects`.
+- Added six platform Applications with sync waves: ingress-nginx, Kyverno,
+  Kyverno policies, monitoring, logging, Argo Rollouts. All chart versions are
+  pinned and verified against the chart repositories.
+- Added five CEL `ValidatingPolicy` admission policies and a sample pod fixture.
+  `kyverno apply` reports 5 pass, 0 fail.
+- Implemented `make gitops-validate` and wired `make validate` to it. Fixed the
+  recursive `$(MAKE)` call that broke on the space in the repository path.
+- Added ADR-009 (CEL policies) and ADR-010 (app-of-apps bootstrap). Updated
+  `docs/SETUP.md` and `docs/VERSIONS.md`.
+- `make check` passes: lint, GitOps validation, gitleaks, checkov (194 Terraform
+  and 131 Dockerfile checks pass, 0 fail), and 15 tests.
+- `make local-up` was attempted: the kind node image was pulled, but Docker
+  returned `read-only file system` when creating worker containers because C:
+  was 100% full. No Kubernetes resources were created. This is a host
+  environment issue, not a project defect; see `docs/SETUP.md`.
+- No AWS resources created.
 
 ### 2026-11-21 — Phase 2 complete
 

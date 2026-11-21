@@ -57,6 +57,26 @@ Verification date for this table: **2026-11-21**.
 |---|---|---|
 | TFLint AWS ruleset | 0.50.0 | `github.com/terraform-linters/tflint-ruleset-aws` |
 
+## Platform versions resolved in Phase 3
+
+All chart versions below were verified with `helm search repo <repo>/<chart>
+--versions` on 2026-11-21. Charts are pinned in the individual `Application`
+manifests under `gitops/platform/`; Argo CD is pinned in `scripts/local-up.sh`.
+
+| Component | Version | App version | Where pinned |
+|---|---|---|---|
+| kind node image | `kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5` | Kubernetes 1.37.0 | kind 0.33.0 default, observed in `kind create cluster` output |
+| Argo CD chart (`argo/argo-cd`) | 10.18.2 | v3.6.2 | `scripts/local-up.sh` |
+| ingress-nginx chart (`ingress-nginx/ingress-nginx`) | 4.11.3 | 1.11.3 | `gitops/platform/ingress-nginx.yaml` |
+| Kyverno chart (`kyverno/kyverno`) | 3.10.0 | v1.20.0 | `gitops/platform/kyverno.yaml` |
+| kube-prometheus-stack (`prom/kube-prometheus-stack`) | 65.8.1 | v0.77.2 | `gitops/platform/monitoring.yaml` |
+| Loki stack (`grafana/loki-stack`) | 2.10.2 | v2.9.3 | `gitops/platform/logging.yaml` |
+| Argo Rollouts chart (`argo/argo-rollouts`) | 2.38.0 | v1.7.2 | `gitops/platform/argo-rollouts.yaml` |
+
+Kyverno chart 3.3.7 was rejected: it ships Kyverno 1.13.4, which cannot execute
+the CEL `ValidatingPolicy` resources used here. 3.10.0 ships 1.20.0, matching
+the pinned Kyverno CLI. See [ADR-009](adr/ADR-009-cel-based-kyverno-policies.md).
+
 ## Platform versions to pin in later phases
 
 These are intentionally unresolved until the phase that needs them. Resolve
@@ -64,11 +84,10 @@ them against current official documentation, then add the exact version here.
 
 | Component | Phase | Why it is deferred |
 |---|---|---|
-| Terraform providers (`aws`, `kubernetes`, `helm`, `random`) | 1 | Resolve with `terraform init` and record in `.terraform.lock.hcl` |
-| EKS Kubernetes version | 1 | Use a version in standard support at build time |
-| kind node image | 3 | Pin the digest in the kind configuration |
-| Helm charts (Argo CD, ingress-nginx, Kyverno, kube-prometheus-stack, Loki, Alloy, Argo Rollouts, External Secrets) | 3 | Verify chart and CRD compatibility together |
-| Application base images | 2 | Pin by tag and digest |
+| Terraform providers (`aws`, `kubernetes`, `helm`, `random`) | 1 | Resolved in `.terraform.lock.hcl` |
+| EKS Kubernetes version | 1 | Resolved in `infra/` |
+| Application base images | 2 | Pinned by tag and digest in the Dockerfiles |
+| External Secrets chart | 4/6 | Needed only with the application delivery layer |
 | GitHub Actions | 5 | Pin every action by commit SHA |
 | GitLab CI images | 5 | Pin by tag and digest |
 | k6, Chaos Mesh | 9 | Extension phase |
