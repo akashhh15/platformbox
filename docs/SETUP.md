@@ -360,6 +360,12 @@ The script is idempotent: it skips images already present on the first node.
 For an image digest pin, it records the digest in the archive manifest so the
 kubelet resolves the local copy instead of contacting the registry.
 
+Run the helper as part of `make local-up`, before the platform apps start. Do
+not run it against a busy cluster: image pulls and `kind load` share the Docker
+disk with etcd, and heavy I/O can make etcd report `slow fdatasync` and cause
+transient control-plane leader losses. If images are missing after startup,
+prefer `make local-down` followed by `make local-up`.
+
 ### Argo CD reports `metadata.annotations: Too long` on a CRD
 
 Kyverno ships CRDs larger than the 262144-byte Kubernetes annotation limit.
