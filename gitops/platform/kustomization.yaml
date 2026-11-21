@@ -7,3 +7,22 @@ resources:
   - monitoring.yaml
   - logging.yaml
   - argo-rollouts.yaml
+
+# Helm charts in this platform ship CRDs larger than the 262144-byte
+# Kubernetes annotation limit. Client-side apply stores the whole manifest in
+# kubectl.kubernetes.io/last-applied-configuration and fails on those CRDs.
+# Server-side apply uses managedFields instead, so every Application needs it.
+# See docs/adr/ADR-011-argocd-server-side-apply.md.
+patches:
+  - target:
+      kind: Application
+    patch: |-
+      apiVersion: argoproj.io/v1alpha1
+      kind: Application
+      metadata:
+        name: platform-sync-options
+      spec:
+        syncPolicy:
+          syncOptions:
+            - CreateNamespace=true
+            - ServerSideApply=true
