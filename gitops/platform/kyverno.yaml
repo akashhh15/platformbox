@@ -21,6 +21,11 @@ spec:
           replicas: 1
         reportsController:
           replicas: 1
+        upgrade:
+          # Fresh cluster with only CEL policies; the server-side hook pulls an
+          # extra image and blocks the sync on slow networks.
+          legacyPolicyCheck:
+            enabled: false
   destination:
     server: https://kubernetes.default.svc
     namespace: kyverno
