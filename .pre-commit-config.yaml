@@ -60,6 +60,12 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      - id: workflows-validate
+        name: workflows-validate
+        entry: bash scripts/validate-workflows.sh
+        language: system
+        files: ^(\.github/workflows/.*\.ya?ml|\.gitlab-ci\.yml|scripts/validate-workflows\.sh)$
+        pass_filenames: false
       - id: hadolint
         name: hadolint
         entry: hadolint

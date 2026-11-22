@@ -19,8 +19,8 @@ TOOLS_BIN := tools/bin
 export PATH := $(CURDIR)/$(VENV_BIN):$(CURDIR)/$(TOOLS_BIN):$(PATH)
 
 .PHONY: help tools tools-check pre-commit-install fmt lint validate scan test check \
-        terraform-test contract local-up local-down up down demo gitops-validate \
-        local-smoke aws-plan aws-apply clean
+        terraform-test contract workflows-validate local-up local-down up down demo \
+        gitops-validate local-smoke aws-plan aws-apply clean
 
 ##@ General
 
@@ -44,9 +44,12 @@ fmt: ## Apply formatting fixes to all files
 	@pre-commit run --all-files || true
 	@pre-commit run --all-files
 
-lint: ## Run all linters and format checks
+lint: workflows-validate ## Run all linters and format checks
 	@echo "==> Linting (pre-commit)"
 	pre-commit run --all-files
+
+workflows-validate: ## Validate GitHub and GitLab CI configuration offline
+	@bash scripts/validate-workflows.sh
 
 validate: terraform-test gitops-validate contract ## Validate Terraform, Kubernetes and GitOps manifests
 	@echo "==> All validation gates passed."
