@@ -58,6 +58,7 @@ runtime is a local `kind` cluster; AWS Terraform is validated with
 | 2026-11-22 | Local ExternalSecret path uses a fake store with docker-compose credentials and in-cluster FQDNs | ADR-016 |
 | 2026-11-22 | `app-data` uses baseline PSS for the pinned PostgreSQL image | ADR-017 |
 | 2026-11-22 | Rollout uses canary with no steps as a basic rolling update | ADR-018 |
+| 2026-11-22 | AWS secret store is EKS-gated so local kind stays Healthy | ADR-019 |
 
 ## Open items
 

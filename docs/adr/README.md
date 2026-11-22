@@ -16,5 +16,16 @@ one with a new ADR instead of rewriting history.
 | [ADR-006](ADR-006-irsa-over-pod-identity.md) | IRSA over EKS Pod Identity | Accepted |
 | [ADR-007](ADR-007-single-nat-dev.md) | Single NAT gateway in dev | Accepted |
 | [ADR-008](ADR-008-s3-native-locking.md) | S3 native state locking | Accepted |
+| [ADR-009](ADR-009-cel-based-kyverno-policies.md) | CEL-based Kyverno policies | Accepted |
+| [ADR-010](ADR-010-local-platform-bootstrap.md) | Local platform bootstrap through Argo CD | Accepted |
+| [ADR-011](ADR-011-argocd-server-side-apply.md) | Server-side apply without client-side migration for Argo CD Applications | Accepted |
+| [ADR-012](ADR-012-disable-kyverno-migration-hooks-locally.md) | Disable Kyverno upgrade hooks in the local demo | Accepted |
+| [ADR-013](ADR-013-git-path-child-apps-follow-root-revision.md) | Git-path child Applications follow the root revision | Accepted |
+| [ADR-014](ADR-014-kustomize-image-placeholders.md) | Machine-editable image tags through Kustomize `images` | Accepted |
+| [ADR-015](ADR-015-cluster-gated-applicationsets.md) | Cluster-gated ApplicationSets with a separate local overlay | Accepted |
+| [ADR-016](ADR-016-local-fake-secret-store.md) | Local fake External Secrets store | Accepted |
+| [ADR-017](ADR-017-baseline-pss-for-local-data.md) | Baseline Pod Security Standard for local data services | Accepted |
+| [ADR-018](ADR-018-canary-without-steps.md) | Canary strategy without steps for Phase 4 | Accepted |
+| [ADR-019](ADR-019-gate-aws-secret-store-by-cluster.md) | Gate the AWS secret store by target cluster | Accepted |
 
 Use [template.md](template.md) for a new ADR.
