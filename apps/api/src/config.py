@@ -21,5 +21,9 @@ class Settings(BaseSettings):
     db_timeout_seconds: float = 2.0
     redis_timeout_seconds: float = 2.0
 
+    # Opt-in fault injection. Disabled by default so prod cannot fail on demand.
+    # Enabled only in dev/staging overlays for chaos experiments (Phase 9).
+    fault_injection_enabled: bool = False
+
 
 settings = Settings()

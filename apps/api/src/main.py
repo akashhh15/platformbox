@@ -9,7 +9,7 @@ from config import settings
 from db import close_database
 from logging_config import configure_logging, get_logger
 from redis_client import close_redis
-from routes import health, items
+from routes import chaos, health, items
 
 configure_logging()
 logger = get_logger(__name__)
@@ -35,6 +35,7 @@ Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 
 app.include_router(health.router)
 app.include_router(items.router)
+app.include_router(chaos.router)
 
 
 @app.get("/", tags=["root"])
