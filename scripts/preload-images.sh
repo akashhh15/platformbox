@@ -49,6 +49,9 @@ IMAGES=(
   "docker.io/grafana/promtail:2.9.3"
   "quay.io/argoproj/argo-rollouts:v1.7.2"
   "quay.io/argoproj/kubectl-argo-rollouts:v1.7.2"
+  "ghcr.io/external-secrets/external-secrets:v2.15.0"
+  "docker.io/library/postgres:16.4-alpine@sha256:5660c2cbfea50c7a9127d17dc4e48543eedd3d7a41a595a2dfa572471e37e64c"
+  "docker.io/library/redis:7.4-alpine@sha256:7f7d30b7fdd09467bac58198a1f166dd69789d348d4fe859cccb20e0cf287fbe"
 )
 
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/platformbox-images.XXXXXX")"
