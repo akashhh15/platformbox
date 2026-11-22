@@ -19,7 +19,7 @@ TOOLS_BIN := tools/bin
 export PATH := $(CURDIR)/$(VENV_BIN):$(CURDIR)/$(TOOLS_BIN):$(PATH)
 
 .PHONY: help tools tools-check pre-commit-install fmt lint validate scan test check \
-        local-up local-down up down demo gitops-validate aws-plan aws-apply clean
+        local-up local-down up down demo gitops-validate local-smoke aws-plan aws-apply clean
 
 ##@ General
 
@@ -95,17 +95,10 @@ demo: ## Run the five-minute local demo
 ##@ Validation and optional AWS path
 
 gitops-validate: ## Render and validate every Kustomize overlay and Helm chart
-	@echo "==> Kustomize build: bootstrap"
-	@kustomize build gitops/bootstrap >/dev/null
-	@echo "==> Kustomize build: platform"
-	@kustomize build gitops/platform >/dev/null
-	@echo "==> Kustomize build: kyverno-policies"
-	@kustomize build gitops/platform/kyverno-policies >/dev/null
-	@echo "==> Kubeconform: platform manifests"
-	@kustomize build gitops/platform | kubeconform -summary -strict -skip 'Application,ValidatingPolicy' >/dev/null
-	@echo "==> Kyverno policy validation"
-	@kyverno apply gitops/platform/kyverno-policies/ -r apps/api/tests/fixtures/sample-pod.yaml >/dev/null
-	@echo "==> All GitOps manifests valid."
+	@bash scripts/gitops-validate.sh
+
+local-smoke: ## Deploy the app on kind with local Postgres, Redis and fake secrets
+	@bash scripts/local-smoke.sh
 
 aws-plan: ## Optional: plan the AWS production path (creates no resources)
 	@echo "Not implemented until Phase 1 (Terraform)."

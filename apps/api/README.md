@@ -11,6 +11,7 @@ FastAPI service for the Platform in a Box demo application.
 - `GET /items` - list items
 - `POST /items` - create an item
 - `GET /items/{id}` - fetch an item
+- `POST /chaos/fail` - return HTTP 503 on demand when fault injection is enabled (404 otherwise)
 
 ## Configuration
 
@@ -23,6 +24,7 @@ All settings come from environment variables (see `src/config.py`):
 | `LOG_LEVEL` | `INFO` | Logging level |
 | `SERVICE_NAME` | `platformbox-api` | Service name in logs |
 | `ENVIRONMENT` | `dev` | Environment name |
+| `FAULT_INJECTION_ENABLED` | `false` | Enable `POST /chaos/fail` for chaos experiments |
 
 ## Local development
 

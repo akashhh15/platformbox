@@ -1,0 +1,37 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# One base for all environments. Overlays set the namespace, replica counts,
+# resource sizes, fault-injection toggle and image tag. CI rewrites the
+# `images.newTag` value in an overlay; see ADR-014 and docs/architecture.md.
+resources:
+  - networkpolicies.yaml
+  - api/serviceaccount.yaml
+  - api/service.yaml
+  - api/rollout.yaml
+  - api/ingress.yaml
+  - api/servicemonitor.yaml
+  - api/hpa.yaml
+  - api/pdb.yaml
+  - api/externalsecret.yaml
+  - worker/serviceaccount.yaml
+  - worker/service.yaml
+  - worker/deployment.yaml
+  - worker/servicemonitor.yaml
+  - worker/hpa.yaml
+  - worker/pdb.yaml
+  - worker/externalsecret.yaml
+  - frontend/serviceaccount.yaml
+  - frontend/service.yaml
+  - frontend/deployment.yaml
+  - frontend/ingress.yaml
+  - frontend/hpa.yaml
+  - frontend/pdb.yaml
+
+images:
+  - name: ghcr.io/akashhh15/platformbox/api
+    newTag: dev
+  - name: ghcr.io/akashhh15/platformbox/worker
+    newTag: dev
+  - name: ghcr.io/akashhh15/platformbox/frontend
+    newTag: dev

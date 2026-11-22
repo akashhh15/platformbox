@@ -4,7 +4,8 @@ Every tool, provider, chart, image and action is pinned. This file records the
 choice, the date it was verified and the source. Update it in the same commit
 as the version change.
 
-Verification date for this table: **2026-11-21**.
+Verification date for this table: **2026-11-22**. Earlier entries were verified
+on 2026-11-21; the Phase 4 additions below were verified on 2026-11-22.
 
 ## Local toolchain
 
@@ -72,6 +73,7 @@ manifests under `gitops/platform/`; Argo CD is pinned in `scripts/local-up.sh`.
 | kube-prometheus-stack (`prom/kube-prometheus-stack`) | 65.8.1 | v0.77.2 | `gitops/platform/monitoring.yaml` |
 | Loki stack (`grafana/loki-stack`) | 2.10.2 | v2.9.3 | `gitops/platform/logging.yaml` |
 | Argo Rollouts chart (`argo/argo-rollouts`) | 2.38.0 | v1.7.2 | `gitops/platform/argo-rollouts.yaml` |
+| External Secrets chart (`external-secrets/external-secrets`) | 2.15.0 | v2.15.0 | `gitops/platform/external-secrets.yaml` |
 
 The following images are pulled on the host and preloaded into every kind node
 by `scripts/preload-images.sh` because their registries are slow from inside
@@ -101,6 +103,21 @@ kind. They are pinned to the same versions the charts above render:
 | `quay.io/argoproj/argo-rollouts` | `v1.7.2` | Argo Rollouts chart 2.38.0 |
 | `quay.io/argoproj/kubectl-argo-rollouts` | `v1.7.2` | Argo Rollouts chart 2.38.0 dashboard |
 
+The following application and local-data images are pinned for the Phase 4
+local smoke test. Digests were resolved on 2026-11-22 with
+`docker buildx imagetools inspect`:
+
+| Image | Pin | Source |
+|---|---|---|
+| `ghcr.io/external-secrets/external-secrets` | `v2.15.0@sha256:6888f243e5f8f7592c6d7fae2a5547c9e33531441b47b53807b9093b25a00e31` | External Secrets chart 2.15.0, `helm template` output |
+| `postgres` | `16.4-alpine@sha256:5660c2cbfea50c7a9127d17dc4e48543eedd3d7a41a595a2dfa572471e37e64c` | `gitops/apps/local-data/postgres.yaml` |
+| `redis` | `7.4-alpine@sha256:7f7d30b7fdd09467bac58198a1f166dd69789d348d4fe859cccb20e0cf287fbe` | `gitops/apps/local-data/redis.yaml` |
+| `nginx` | `1.27.3-alpine@sha256:814a8e88df978ade80e584cc5b333144b9372a8e3c98872d07137dbf3b44d0e4` | `apps/frontend/Dockerfile` base image |
+
+Application images are built locally as `platformbox-{api,worker,frontend}:local`
+and loaded into kind by `scripts/local-smoke.sh`; CI will publish immutable tags
+in Phase 5 (ADR-014).
+
 Kyverno chart 3.3.7 was rejected: it ships Kyverno 1.13.4, which cannot execute
 the CEL `ValidatingPolicy` resources used here. 3.10.0 ships 1.20.0, matching
 the pinned Kyverno CLI. See [ADR-009](adr/ADR-009-cel-based-kyverno-policies.md).
@@ -115,7 +132,6 @@ them against current official documentation, then add the exact version here.
 | Terraform providers (`aws`, `kubernetes`, `helm`, `random`) | 1 | Resolved in `.terraform.lock.hcl` |
 | EKS Kubernetes version | 1 | Resolved in `infra/` |
 | Application base images | 2 | Pinned by tag and digest in the Dockerfiles |
-| External Secrets chart | 4/6 | Needed only with the application delivery layer |
 | GitHub Actions | 5 | Pin every action by commit SHA |
 | GitLab CI images | 5 | Pin by tag and digest |
 | k6, Chaos Mesh | 9 | Extension phase |

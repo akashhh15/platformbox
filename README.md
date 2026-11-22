@@ -5,8 +5,10 @@ progressive delivery, policy-as-code, observability, SLOs, and a supply chain
 that signs what it ships. The AWS EKS production path is written and validated
 with Terraform, but it is optional and is never applied by the agent.
 
-> **Status: Phase 0 — repository foundation.** The platform is not runnable yet.
-> See [PROGRESS.md](PROGRESS.md) for the phase plan and current state.
+> **Status: Phase 4 — application delivery.** The local platform and its
+> application manifests run on `kind`; CI/CD and later phases are still planned.
+> See [PROGRESS.md](PROGRESS.md) for the phase plan and current state, and
+> [docs/architecture.md](docs/architecture.md) for the delivery model.
 
 ## What this demonstrates
 
@@ -98,7 +100,7 @@ The dashed AWS path is design-validated only. The trade-off is recorded in
 
 ## Quickstart
 
-The full local quickstart arrives in Phase 3. The foundation is usable now:
+The platform runs locally at zero cost:
 
 ```bash
 git clone <your-repository-url> platformbox
@@ -106,7 +108,13 @@ cd platformbox
 bash scripts/install-tools.sh   # Windows + Git Bash: installs make and the pinned toolchain
 make tools-check
 make check
+make local-up
+make local-smoke
 ```
+
+`make local-up` installs the platform with Argo CD. `make local-smoke` builds the
+three app images, deploys them with in-cluster PostgreSQL and Redis, and checks
+the HTTP endpoints. Full instructions are in [docs/SETUP.md](docs/SETUP.md).
 
 On Linux and macOS, install GNU Make and the pinned tools with your package
 manager first; the exact commands are in [docs/SETUP.md](docs/SETUP.md). No AWS

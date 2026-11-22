@@ -2,11 +2,13 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - ingress-nginx.yaml
+  - external-secrets.yaml
   - kyverno.yaml
   - kyverno-policies-app.yaml
   - monitoring.yaml
   - logging.yaml
   - argo-rollouts.yaml
+  - apps-applicationset.yaml
 
 # Helm charts in this platform ship CRDs larger than the 262144-byte
 # Kubernetes annotation limit. Client-side apply stores the whole manifest in

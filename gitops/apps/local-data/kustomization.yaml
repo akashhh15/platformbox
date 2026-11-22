@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Local-only substitute for RDS and ElastiCache (ADR-004).
+resources:
+  - namespace.yaml
+  - postgres.yaml
+  - redis.yaml
+  - networkpolicies.yaml
+
+namespace: app-data
+
+configMapGenerator:
+  - name: postgres-init
+    files:
+      - init.sql

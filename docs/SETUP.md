@@ -125,8 +125,9 @@ for itself:
 4. Applies the two `AppProject` resources from `gitops/projects`.
 5. Applies the root `Application` from `gitops/bootstrap/root-app.yaml`.
 
-Everything else — ingress-nginx, Kyverno, the policies, monitoring, logging and
-Argo Rollouts — is synced by Argo CD from `gitops/platform`. Do not install any
+Everything else — ingress-nginx, External Secrets, Kyverno, the policies,
+monitoring, logging, Argo Rollouts and the application ApplicationSets — is
+synced by Argo CD from `gitops/platform`. Do not install any
 of those directly; there is a single source of truth. See
 [ADR-010](adr/ADR-010-local-platform-bootstrap.md).
 
@@ -135,11 +136,15 @@ When you run `local-up` from a branch that exists on `origin`, the script points
 the root app at that branch so the manifests in your checkout are deployed.
 After the pull request is merged, running from `main` restores the committed
 behaviour. A missing source path renders as a *healthy but empty* Application,
-so check that the six child Applications exist:
+so check that the seven child Applications and two ApplicationSets exist:
 
 ```bash
-kubectl get applications -n argocd
+kubectl get applications,applicationsets -n argocd
 ```
+
+The ApplicationSets intentionally generate nothing on kind: their cluster
+selector requires a registered EKS cluster Secret labelled
+`platformbox.io/target: eks`. This is recorded in ADR-015.
 
 ### Accessing the platform
 
@@ -160,6 +165,26 @@ curl -I http://localhost
 
 The Grafana credential is a public, local-only demo value. It is never used
 outside kind. Never reuse it for a real installation.
+
+### Running the Phase 4 application smoke test
+
+With the kind cluster already up:
+
+```bash
+make local-smoke
+```
+
+The script preloads the pinned ESO and data-service images, builds
+`platformbox-{api,worker,frontend}:local`, loads them into kind, waits for the
+External Secrets CRDs, applies `gitops/apps/local-data` and `gitops/apps/local`,
+then checks `/health`, `/ready`, the frontend and the opt-in chaos endpoint
+through port-forwards. Expected result: health and readiness return HTTP 200,
+the frontend returns HTTP 200, and `POST /chaos/fail` returns HTTP 503 in the
+local namespace.
+
+No AWS account, registry credential or domain is needed. Details are in
+[docs/architecture.md](architecture.md) and
+[ADR-016](adr/ADR-016-local-fake-secret-store.md).
 
 ## 5. GitHub repository setup
 
@@ -255,6 +280,13 @@ These cannot be completed by the agent. Check them off as you go.
 - [ ] Supply the Slack webhook when Phase 7 starts.
 - [ ] Decide whether to run the optional AWS path; if yes, complete the AWS
       account, MFA and budget steps above.
+- [ ] If you deploy to EKS, register the cluster in Argo CD with the label
+      `platformbox.io/target: eks`; without it the ApplicationSets generate no
+      environment Applications (ADR-015).
+- [ ] If you use a real domain, supply its value and an ACM certificate ARN as
+      variables and add the TLS Ingress patch; no hostname is committed.
+- [ ] If you deploy the AWS overlays, patch the app NetworkPolicies with an
+      `ipBlock` allow for your VPC CIDR so ALB traffic reaches the pods.
 - [ ] Run `make check` on a fresh clone and report any environment-specific
       failure.
 
@@ -366,6 +398,20 @@ disk with etcd, and heavy I/O can make etcd report `slow fdatasync` and cause
 transient control-plane leader losses. If images are missing after startup,
 prefer `make local-down` followed by `make local-up`.
 
+### `local-smoke` waits forever for External Secrets CRDs
+
+Check that the `external-secrets` Application is `Synced`/`Healthy` and that the
+image was preloaded:
+
+```bash
+kubectl get application external-secrets -n argocd
+kubectl get crd externalsecrets.external-secrets.io
+bash scripts/preload-images.sh platformbox
+```
+
+The operator is installed by Argo CD with chart version 2.15.0. Do not create
+the CRDs by hand; that would diverge from the GitOps source of truth.
+
 ### Argo CD reports `metadata.annotations: Too long` on a CRD
 
 Kyverno ships CRDs larger than the 262144-byte Kubernetes annotation limit.
@@ -378,8 +424,8 @@ If a sync waits on `kyverno-migrate-resources`, the Kyverno upgrade hooks are
 still enabled. They are disabled in `gitops/platform/kyverno.yaml` because the
 local cluster starts empty; see [ADR-012](adr/ADR-012-disable-kyverno-migration-hooks-locally.md).
 
-`kyverno-policies` is the only child Application with a Git `path` source. It
-must use the same revision as the root app while Phase 3 is under review; see
+`kyverno-policies` is a child Application with a Git `path` source. It
+must use the same revision as the root app; see
 [ADR-013](adr/ADR-013-git-path-child-apps-follow-root-revision.md). A `Healthy`
 status with `Unknown` sync usually means the path does not exist at the
 Application's `targetRevision`.

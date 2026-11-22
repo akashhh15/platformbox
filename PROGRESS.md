@@ -8,7 +8,7 @@
 | 1 — Terraform foundation | Complete — awaiting review | Bootstrap, 8 modules, dev/prod environments, 4 ADRs; fmt/validate/tflint/checkov/trivy/test pass |
 | 2 — Application and containers | Complete — awaiting review | FastAPI api/worker, static frontend, compose; ruff/pytest/hadolint pass; images build |
 | 3 — GitOps and platform layer | Complete — merged and verified | kind config, Argo CD app-of-apps, ingress, CEL policies, monitoring, logging, rollouts; `make check` passes; clean rebuild succeeded; all Applications `Synced`/`Healthy` |
-| 4 — Application delivery | Not started | Kustomize base and dev/staging/prod overlays |
+| 4 — Application delivery | Complete — awaiting review | Kustomize base, dev/staging/prod overlays, ApplicationSets, local data/secret substitutes; `make check` and `make local-smoke` pass |
 | 5 — CI/CD | Not started | GitHub Actions and GitLab CI, SBOM, signing, write-back |
 | 6 — DevSecOps and policy | Not started | Kyverno policies and tests, threat model |
 | 7 — Observability and SLOs | Not started | Dashboards, recording rules, burn-rate alerts, runbooks |
@@ -53,6 +53,11 @@ runtime is a local `kind` cluster; AWS Terraform is validated with
 | 2026-11-21 | Kyverno upgrade hooks disabled on the disposable local cluster | ADR-012 |
 | 2026-11-22 | Git-path child Application follows the root Application revision during review | ADR-013 |
 | 2026-11-21 | Slow third-party images are pulled on the host and preloaded into kind | scripts/preload-images.sh, docs/VERSIONS.md |
+| 2026-11-22 | CI edits overlay `images.newTag` with pinned `kustomize edit set image` | ADR-014 |
+| 2026-11-22 | ApplicationSets are cluster-gated and inactive on kind; prod is manual sync | ADR-015 |
+| 2026-11-22 | Local ExternalSecret path uses a fake store with docker-compose credentials and in-cluster FQDNs | ADR-016 |
+| 2026-11-22 | `app-data` uses baseline PSS for the pinned PostgreSQL image | ADR-017 |
+| 2026-11-22 | Rollout uses canary with no steps as a basic rolling update | ADR-018 |
 
 ## Open items
 
@@ -65,13 +70,16 @@ runtime is a local `kind` cluster; AWS Terraform is validated with
   intentional and costs nothing.
 - Docker's data disk was moved from C: to D: with a junction. C: now has about
   12 GB free and the kind cluster starts normally.
-- The Phase 3 pull request is open as a draft. It must be marked ready, approved
-  and merged through GitHub before `main` contains these fixes.
+- The Phase 3 pull requests #6 and #7 are merged; `main` is the source of truth.
 - The resumed clean `local-down`/`local-up` succeeded with no manual steps.
   All six child Applications and the root Application are `Synced`/`Healthy`.
   `kyverno-policies` initially stayed `Unknown` because its Git path was pinned
   to `main` while the root app followed `phase/3-platform`; ADR-013 records the
   fix. All five CEL policies report `READY`.
+- The Phase 4 branch `phase/4-app-delivery` is pushed. Local smoke test deployed
+  api, worker and frontend with in-cluster Postgres/Redis; `/health`, `/ready`,
+  frontend `/` and the opt-in `/chaos/fail` endpoint returned the expected
+  results. No AWS resource was created.
 
 ## Human tasks
 

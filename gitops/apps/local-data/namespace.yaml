@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: app-data
+  labels:
+    app.kubernetes.io/part-of: platformbox
+    platformbox.io/environment: local
+    # PostgreSQL needs to write its data directory as uid 999, which is not
+    # compatible with the restricted PSS profile. Documented in ADR-017.
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/audit: baseline
+    pod-security.kubernetes.io/warn: baseline
