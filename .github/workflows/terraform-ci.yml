@@ -50,10 +50,14 @@ jobs:
       - name: Terraform format check
         run: terraform fmt -check -recursive infra
 
-      # Run before terraform init so downloaded third-party modules are not
-      # scanned as if they were our own configuration.
+      # Trivy resolves remote Terraform modules itself. Exclude their findings
+      # below so this gate checks our configuration, not third-party code.
       - name: Trivy config scan
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
+        env:
+          # Trivy fetches remote Terraform modules. Policy is ours, not the
+          # third-party module's; exclude findings from downloaded modules.
+          TRIVY_TF_EXCLUDE_DOWNLOADED_MODULES: 'true'
         with:
           scan-type: config
           scan-ref: infra
