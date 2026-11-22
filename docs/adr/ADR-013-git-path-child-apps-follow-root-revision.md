@@ -24,13 +24,11 @@ by the root app's `selfHeal: true`, so the fix has to be committed in Git.
 
 ## Decision
 
-`gitops/platform/kyverno-policies-app.yaml` uses
+While the Phase 3 pull request was open,
+`gitops/platform/kyverno-policies-app.yaml` used
 `targetRevision: phase/3-platform`, matching the branch the root Application
-follows during Phase 3 review.
-
-After the Phase 3 pull request is merged, the value should be changed to `main`
-in a small follow-up commit. The local demo continues to work while the branch
-exists on `origin`.
+followed. After the merge, this cleanup changed the value back to `main`,
+which now contains the policy directory.
 
 ## Alternatives considered
 
@@ -45,9 +43,8 @@ exists on `origin`.
 
 ## Consequences
 
-- `kyverno-policies` syncs from the same revision as the root app during the
+- `kyverno-policies` synced from the same revision as the root app during the
   Phase 3 review.
-- A follow-up commit after merge is required to switch the value back to
-  `main`. This is recorded as a human task in `PROGRESS.md`.
+- After merge, the value is `main`, so deleting the review branch is safe.
 - All other child Applications remain pinned to their exact Helm chart
   versions.
