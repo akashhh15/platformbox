@@ -287,6 +287,8 @@ These cannot be completed by the agent. Check them off as you go.
       IRSA role ARN from the Terraform output so the committed
       `aws-secretsmanager` ClusterSecretStore can read Secrets Manager:
       `kubectl annotate serviceaccount external-secrets -n external-secrets eks.amazonaws.com/role-arn=<role_arn> --overwrite`.
+      The store is generated only on clusters labelled
+      `platformbox.io/target: eks` (ADR-019); kind generates none.
 - [ ] If you use a real domain, supply its value and an ACM certificate ARN as
       variables and add the TLS Ingress patch; no hostname is committed.
 - [ ] If you deploy the AWS overlays, patch the app NetworkPolicies with an
