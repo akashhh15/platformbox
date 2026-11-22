@@ -7,7 +7,7 @@
 | 0 — Repository foundation | Complete — awaiting review | Skeleton, Makefile, pre-commit, docs, ADRs; `make check` passes |
 | 1 — Terraform foundation | Complete — awaiting review | Bootstrap, 8 modules, dev/prod environments, 4 ADRs; fmt/validate/tflint/checkov/trivy/test pass |
 | 2 — Application and containers | Complete — awaiting review | FastAPI api/worker, static frontend, compose; ruff/pytest/hadolint pass; images build |
-| 3 — GitOps and platform layer | Complete — final sync verification in progress | kind config, Argo CD app-of-apps, ingress, CEL policies, monitoring, logging, rollouts; `make check` passes; clean rebuild succeeded; one Git-path child revision fixed and resyncing |
+| 3 — GitOps and platform layer | Complete — verified locally | kind config, Argo CD app-of-apps, ingress, CEL policies, monitoring, logging, rollouts; `make check` passes; clean rebuild succeeded; all Applications `Synced`/`Healthy` |
 | 4 — Application delivery | Not started | Kustomize base and dev/staging/prod overlays |
 | 5 — CI/CD | Not started | GitHub Actions and GitLab CI, SBOM, signing, write-back |
 | 6 — DevSecOps and policy | Not started | Kyverno policies and tests, threat model |
@@ -67,10 +67,11 @@ runtime is a local `kind` cluster; AWS Terraform is validated with
   12 GB free and the kind cluster starts normally.
 - The Phase 3 pull request is open as a draft. It must be marked ready, approved
   and merged through GitHub before `main` contains these fixes.
-- The resumed clean `local-down`/`local-up` succeeded. All six child
-  Applications are `Healthy`; `kyverno-policies` initially stayed `Unknown`
-  because its Git path was pinned to `main` while the root app followed
-  `phase/3-platform`. The revision is fixed in Git and needs a final resync.
+- The resumed clean `local-down`/`local-up` succeeded with no manual steps.
+  All six child Applications and the root Application are `Synced`/`Healthy`.
+  `kyverno-policies` initially stayed `Unknown` because its Git path was pinned
+  to `main` while the root app followed `phase/3-platform`; ADR-013 records the
+  fix. All five CEL policies report `READY`.
 
 ## Human tasks
 
@@ -154,8 +155,14 @@ are in [docs/SETUP.md](docs/SETUP.md).
 - `kyverno-policies` initially reported `Unknown` sync because it was the only
   Git-path child Application and was pinned to `main` while the root followed
   `phase/3-platform`. Fixed the committed revision and recorded ADR-013.
-- Re-ran the full quality gate after the change; result recorded in the final
-  phase report.
+- Re-ran `make check` after the fix: `exit=0`, all pre-commit hooks,
+  `gitops-validate`, gitleaks (no leaks), checkov (194 Terraform passed, 0
+  failed, 37 skipped; 131 Dockerfile passed, 0 failed) and 15 tests passed.
+- Verified with `kubectl get applications -n argocd`: `argo-rollouts`,
+  `ingress-nginx`, `kyverno`, `kyverno-policies`, `logging`, `monitoring` and
+  `root` are all `Synced`/`Healthy`; root operation `Succeeded`.
+- Verified `kubectl get validatingpolicies.policies.kyverno.io -A`: all five
+  policies are `READY`.
 - No AWS resources created.
 
 ### 2026-11-21 — Phase 2 complete
