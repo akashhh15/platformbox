@@ -61,8 +61,8 @@ jobs:
 
       - name: TFLint
         run: |
-          tflint --init --config=.tflint.hcl
-          tflint --recursive --config=.tflint.hcl
+          tflint --init --config="$GITHUB_WORKSPACE/.tflint.hcl"
+          tflint --recursive --config="$GITHUB_WORKSPACE/.tflint.hcl"
 
       - name: Checkov
         run: checkov -d infra --framework terraform --quiet --compact
