@@ -109,9 +109,13 @@ tooling (Phase 9).
 
 ## Secrets and ingress
 
-AWS overlays reference a `ClusterSecretStore` named `aws-secretsmanager`. Two
-ExternalSecrets extract JSON from `platformbox/database` and `platformbox/redis`
-and template the URLs consumed by the workloads. No secret value is in Git.
+AWS overlays reference the `ClusterSecretStore` named `aws-secretsmanager`,
+defined in `gitops/platform/aws-cluster-secret-store.yaml`. It uses IRSA through
+the ESO chart's `external-secrets` ServiceAccount. A human annotates that
+ServiceAccount with the role ARN output by Terraform before the store can read
+anything. Two ExternalSecrets extract JSON from `platformbox/database` and
+`platformbox/redis` and template the URLs consumed by the workloads. No secret
+value or role ARN is in Git.
 
 Each Ingress uses AWS Load Balancer Controller annotations: internet-facing
 scheme, `target-type: ip`, and a health-check path. TLS is added only when a
