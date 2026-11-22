@@ -94,8 +94,11 @@ make check
 ```
 
 `make check` is the phase definition of done. It runs the linters, validators,
-security scans and tests that exist at the current phase. Targets for later
-phases print a clear "not implemented until Phase N" message and exit 0.
+security scans and tests that exist at the current phase. `make validate` also
+runs `terraform test` with mock providers and `scripts/apps-contract.sh`, which
+compare the local overlay with the AWS overlays and assert that only the
+documented substitutions differ (ADR-020). Targets for later phases print a
+clear "not implemented until Phase N" message and exit 0.
 
 ## 4. Local quickstart
 

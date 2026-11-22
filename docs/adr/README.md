@@ -27,5 +27,6 @@ one with a new ADR instead of rewriting history.
 | [ADR-017](ADR-017-baseline-pss-for-local-data.md) | Baseline Pod Security Standard for local data services | Accepted |
 | [ADR-018](ADR-018-canary-without-steps.md) | Canary strategy without steps for Phase 4 | Accepted |
 | [ADR-019](ADR-019-gate-aws-secret-store-by-cluster.md) | Gate the AWS secret store by target cluster | Accepted |
+| [ADR-020](ADR-020-offline-contract-evidence.md) | Offline contract evidence for the AWS path | Accepted |
 
 Use [template.md](template.md) for a new ADR.
