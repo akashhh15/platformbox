@@ -99,18 +99,67 @@ phases print a clear "not implemented until Phase N" message and exit 0.
 
 ## 4. Local quickstart
 
-The full platform arrives in Phase 3. The commands are fixed now so the
-workflow does not change later:
+The platform runs on a local `kind` cluster. Docker Desktop must be running.
+This path creates no AWS resources and costs $0.
 
 ```bash
-make local-up     # create the kind cluster and install the platform
-make demo         # run the five-minute demo
-make local-down   # delete the cluster
+make local-up     # create the cluster, install Argo CD, apply the root app
+make check        # verify manifests, policies, Terraform, secrets and tests
+make local-down   # delete the cluster and everything in it
 ```
 
 `make up` and `make down` are the guarded versions. They print exactly what
 they will do and require an explicit `y` before acting. They only touch the
 local kind cluster; they never call AWS.
+
+### What `local-up` does
+
+The script is deliberately short. It performs only the steps Argo CD cannot do
+for itself:
+
+1. Creates the `platformbox` kind cluster from `kind-config.yaml`.
+2. Preloads the slow third-party images with `scripts/preload-images.sh`. The
+   script pulls them on the host, where the network is more reliable, then loads
+   them into every kind node. It preserves `@sha256:` pins when a chart uses one.
+3. Installs Argo CD with Helm, pinned in `scripts/local-up.sh`.
+4. Applies the two `AppProject` resources from `gitops/projects`.
+5. Applies the root `Application` from `gitops/bootstrap/root-app.yaml`.
+
+Everything else — ingress-nginx, Kyverno, the policies, monitoring, logging and
+Argo Rollouts — is synced by Argo CD from `gitops/platform`. Do not install any
+of those directly; there is a single source of truth. See
+[ADR-010](adr/ADR-010-local-platform-bootstrap.md).
+
+**Which revision is deployed.** The committed root Application follows `main`.
+When you run `local-up` from a branch that exists on `origin`, the script points
+the root app at that branch so the manifests in your checkout are deployed.
+After the pull request is merged, running from `main` restores the committed
+behaviour. A missing source path renders as a *healthy but empty* Application,
+so check that the six child Applications exist:
+
+```bash
+kubectl get applications -n argocd
+```
+
+### Accessing the platform
+
+```bash
+# Argo CD UI: https://localhost:8080 (use -n argocd, port-forward)
+kubectl port-forward svc/argocd-server -n argocd 8080:443
+# username: admin
+kubectl -n argocd get secret argocd-initial-admin-secret \
+  -o jsonpath='{.data.password}' | base64 -d
+
+# Grafana (after the monitoring app is healthy)
+kubectl port-forward svc/prometheus-grafana -n monitoring 3000:80
+# username: admin; the local demo password is in gitops/platform/monitoring.yaml
+
+# Application ingress
+curl -I http://localhost
+```
+
+The Grafana credential is a public, local-only demo value. It is never used
+outside kind. Never reuse it for a real installation.
 
 ## 5. GitHub repository setup
 
@@ -197,11 +246,11 @@ a variable; nothing is hardcoded.
 
 These cannot be completed by the agent. Check them off as you go.
 
-- [ ] Start Docker Desktop and confirm `docker info` succeeds.
-- [ ] Set `git config --global user.name` and `user.email`.
-- [ ] Create the GitHub repository and push the branches.
-- [ ] Replace `@REPLACE_ME` in `.github/CODEOWNERS`.
-- [ ] Configure branch protection on `main`.
+- [x] Start Docker Desktop and confirm `docker info` succeeds.
+- [x] Set `git config --global user.name` and `user.email`.
+- [x] Create the GitHub repository and push the branches.
+- [x] Replace `@REPLACE_ME` in `.github/CODEOWNERS`.
+- [x] Configure branch protection on `main`.
 - [ ] Create the GitLab project when Phase 5 starts.
 - [ ] Supply the Slack webhook when Phase 7 starts.
 - [ ] Decide whether to run the optional AWS path; if yes, complete the AWS
@@ -229,6 +278,23 @@ the absolute path of `bash.exe` and restart the session.
 Start Docker Desktop and wait for the whale icon to become stable. Then run
 `docker info`. kind, image builds and docker compose all need it.
 
+### `gitleaks` not found during `git commit`
+
+The pre-commit hook calls `gitleaks` directly, which is not on the system
+PATH by default. Export it before committing:
+
+    export PATH="/d/Devops Projects/tools/bin:$PATH"
+
+The Makefile already prepends `tools/bin` for its own targets, so this is only
+needed for raw `git commit`.
+
+### `terraform init` fails with "not enough space on the disk"
+
+The C: drive in this environment is small. Point Terraform's temp directory at
+the D: drive before init:
+
+    export TMP="D:/tmp"; export TEMP="D:/tmp"
+    mkdir -p D:/tmp
 ### Python opens the Microsoft Store
 
 The `python3` alias on Windows can point to the Store stub. Use `python` (the
@@ -270,8 +336,53 @@ bypass.
 ### kind cluster fails to start
 
 Give Docker Desktop at least 8 GB of memory and 4 CPUs. Delete the stale
-cluster with `kind delete cluster --name cloud-platform-in-a-box`, then rerun
+cluster with `kind delete cluster --name platformbox`, then rerun
 `make local-up`.
+
+If Docker reports `read-only file system` when creating containers, its data
+disk is full. Free space on the host drive first, restart Docker Desktop, then
+remove unused images and caches with `docker system prune` before retrying.
+The kind node image is large (~1.3 GB unpacked); keep at least 5 GB free on the
+drive that holds the Docker data.
+
+### A platform pod is stuck in `ImagePullBackOff`
+
+Some registries are slow from the kind node network. `make local-up` preloads
+the images listed in `scripts/preload-images.sh`, so a fresh cluster should not
+need to pull them at pod start. If a pod still reports `ImagePullBackOff`, run
+the helper again:
+
+```bash
+bash scripts/preload-images.sh platformbox
+```
+
+The script is idempotent: it skips images already present on the first node.
+For an image digest pin, it records the digest in the archive manifest so the
+kubelet resolves the local copy instead of contacting the registry.
+
+Run the helper as part of `make local-up`, before the platform apps start. Do
+not run it against a busy cluster: image pulls and `kind load` share the Docker
+disk with etcd, and heavy I/O can make etcd report `slow fdatasync` and cause
+transient control-plane leader losses. If images are missing after startup,
+prefer `make local-down` followed by `make local-up`.
+
+### Argo CD reports `metadata.annotations: Too long` on a CRD
+
+Kyverno ships CRDs larger than the 262144-byte Kubernetes annotation limit.
+All platform Applications set `ServerSideApply=true` and
+`ClientSideApplyMigration=false` through
+`gitops/platform/kustomization.yaml`. Do not remove those options. See
+[ADR-011](adr/ADR-011-argocd-server-side-apply.md).
+
+If a sync waits on `kyverno-migrate-resources`, the Kyverno upgrade hooks are
+still enabled. They are disabled in `gitops/platform/kyverno.yaml` because the
+local cluster starts empty; see [ADR-012](adr/ADR-012-disable-kyverno-migration-hooks-locally.md).
+
+`kyverno-policies` is the only child Application with a Git `path` source. It
+must use the same revision as the root app while Phase 3 is under review; see
+[ADR-013](adr/ADR-013-git-path-child-apps-follow-root-revision.md). A `Healthy`
+status with `Unknown` sync usually means the path does not exist at the
+Application's `targetRevision`.
 
 ## 11. Security notes
 

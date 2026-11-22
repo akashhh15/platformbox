@@ -1,0 +1,30 @@
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: require-resource-limits
+  annotations:
+    policies.kyverno.io/title: Require resource requests and limits
+    policies.kyverno.io/category: Best Practices
+    policies.kyverno.io/severity: medium
+spec:
+  validationActions: ["Deny"]
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods"]
+  matchConditions:
+    - name: app-namespace
+      expression: "object.metadata.?namespace.orValue('').startsWith('app-')"
+  validations:
+    - expression: >-
+        object.spec.containers.all(c,
+        has(c.resources) &&
+        has(c.resources.requests) &&
+        has(c.resources.requests.cpu) &&
+        has(c.resources.requests.memory) &&
+        has(c.resources.limits) &&
+        has(c.resources.limits.cpu) &&
+        has(c.resources.limits.memory))
+      message: "Every container must declare cpu and memory requests and limits."

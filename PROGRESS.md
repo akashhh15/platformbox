@@ -6,8 +6,8 @@
 |---|---|---|
 | 0 — Repository foundation | Complete — awaiting review | Skeleton, Makefile, pre-commit, docs, ADRs; `make check` passes |
 | 1 — Terraform foundation | Complete — awaiting review | Bootstrap, 8 modules, dev/prod environments, 4 ADRs; fmt/validate/tflint/checkov/trivy/test pass |
-| 2 — Application and containers | Not started | FastAPI api/worker, static frontend, compose |
-| 3 — GitOps and platform layer | Not started | Local kind cluster, Argo CD, ingress-nginx, policy, observability |
+| 2 — Application and containers | Complete — awaiting review | FastAPI api/worker, static frontend, compose; ruff/pytest/hadolint pass; images build |
+| 3 — GitOps and platform layer | Complete — verified locally | kind config, Argo CD app-of-apps, ingress, CEL policies, monitoring, logging, rollouts; `make check` passes; clean rebuild succeeded; all Applications `Synced`/`Healthy` |
 | 4 — Application delivery | Not started | Kustomize base and dev/staging/prod overlays |
 | 5 — CI/CD | Not started | GitHub Actions and GitLab CI, SBOM, signing, write-back |
 | 6 — DevSecOps and policy | Not started | Kyverno policies and tests, threat model |
@@ -45,34 +45,141 @@ runtime is a local `kind` cluster; AWS Terraform is validated with
 | 2026-11-21 | Single NAT gateway in dev, HA in prod | ADR-007 |
 | 2026-11-21 | S3 native state locking, no DynamoDB | ADR-008 |
 | 2026-11-21 | pytest pinned to 8.4.2 because pytest 9 needs `packaging>=24` and checkov 3.4.6 pins `packaging<24` | requirements-dev.txt, docs/VERSIONS.md |
+| 2026-11-21 | Kyverno 1.20 CEL `ValidatingPolicy` instead of legacy `ClusterPolicy` | ADR-009 |
+| 2026-11-21 | Argo CD app-of-apps bootstrap; Argo CD manages all platform components, including ingress | ADR-010 |
+| 2026-11-21 | Kyverno chart 3.10.0 (app 1.20.0) to match CLI; all Phase 3 charts pinned | docs/VERSIONS.md |
+| 2026-11-21 | Checkov skips test fixture directories; those pods model policy edge cases | .checkov.yaml |
+| 2026-11-21 | Argo CD server-side apply with client-side migration disabled for large CRDs | ADR-011 |
+| 2026-11-21 | Kyverno upgrade hooks disabled on the disposable local cluster | ADR-012 |
+| 2026-11-22 | Git-path child Application follows the root Application revision during review | ADR-013 |
+| 2026-11-21 | Slow third-party images are pulled on the host and preloaded into kind | scripts/preload-images.sh, docs/VERSIONS.md |
 
 ## Open items
 
-- Docker Desktop is installed but its daemon is not running; local builds and
-  kind need it.
-- Git `user.name` and `user.email` are not configured on this machine.
-- The GitHub repository, GitLab project and branch protection are not created.
+- Git `user.name` and `user.email` are configured on this machine (no-reply).
+- The GitHub repository and branch protection are configured.
+- The GitLab project and mirror credentials are not created (Phase 5).
 - The Slack incoming webhook is not supplied yet; Alertmanager will use a null
-  receiver until it is.
+  receiver until it is (Phase 7).
 - The optional AWS path has no account, budget e-mail or OIDC roles. This is
   intentional and costs nothing.
+- Docker's data disk was moved from C: to D: with a junction. C: now has about
+  12 GB free and the kind cluster starts normally.
+- The Phase 3 pull request is open as a draft. It must be marked ready, approved
+  and merged through GitHub before `main` contains these fixes.
+- The resumed clean `local-down`/`local-up` succeeded with no manual steps.
+  All six child Applications and the root Application are `Synced`/`Healthy`.
+  `kyverno-policies` initially stayed `Unknown` because its Git path was pinned
+  to `main` while the root app followed `phase/3-platform`; ADR-013 records the
+  fix. All five CEL policies report `READY`.
 
 ## Human tasks
 
 These are the tasks only the repository owner can complete. Full instructions
 are in [docs/SETUP.md](docs/SETUP.md).
 
-- [ ] Start Docker Desktop before running kind or Docker builds.
-- [ ] Configure Git identity: `git config --global user.name "..."` and
+- [x] Start Docker Desktop before running kind or Docker builds.
+- [x] Move the Docker data disk from C: to D: and restart Docker Desktop.
+- [x] Configure Git identity: `git config --global user.name "..."` and
   `git config --global user.email "..."`.
-- [ ] Create the GitHub repository, push `main`, and enable branch protection.
-- [ ] Replace `@REPLACE_ME` in `.github/CODEOWNERS` with the real owner.
+- [x] Create the GitHub repository, push `main`, and enable branch protection.
+- [x] Replace `@REPLACE_ME` in `.github/CODEOWNERS` with the real owner.
 - [ ] Create the GitLab project and mirror credentials when Phase 5 starts.
 - [ ] Supply the Slack webhook through a secret, never through Git.
+- [ ] After final verification, mark the Phase 3 PR ready and merge it through
+  GitHub. Do not push directly to `main`.
+- [ ] After the merge, change `gitops/platform/kyverno-policies-app.yaml` to
+  `targetRevision: main` if the `phase/3-platform` branch will be deleted. See
+  ADR-013.
 - [ ] Do **not** run `make aws-apply` unless you explicitly want a paid AWS
   demo. The local path costs $0.
 
 ## Phase log
+
+### 2026-11-21 — Phase 3 implemented
+
+- Added `kind-config.yaml` with host ports 80/443, the `ingress-ready=true`
+  label and two worker nodes.
+- Added `scripts/local-up.sh` and `scripts/local-down.sh`; `make up`/`make down`
+  wrap them with explicit confirmation. `local-up` creates the cluster, installs
+  pinned Argo CD, applies AppProjects and the root Application.
+- Added the Argo CD app-of-apps: `gitops/bootstrap/root-app.yaml` points at
+  `gitops/platform`; AppProjects live in `gitops/projects`.
+- Added six platform Applications with sync waves: ingress-nginx, Kyverno,
+  Kyverno policies, monitoring, logging, Argo Rollouts. All chart versions are
+  pinned and verified against the chart repositories.
+- Added five CEL `ValidatingPolicy` admission policies and a sample pod fixture.
+  `kyverno apply` reports 5 pass, 0 fail.
+- Implemented `make gitops-validate` and wired `make validate` to it. Fixed the
+  recursive `$(MAKE)` call that broke on the space in the repository path.
+- Added ADR-009 (CEL policies) and ADR-010 (app-of-apps bootstrap). Updated
+  `docs/SETUP.md` and `docs/VERSIONS.md`.
+- `make check` passes: lint, GitOps validation, gitleaks, checkov (194 Terraform
+  and 131 Dockerfile checks pass, 0 fail), and 15 tests.
+- `make local-up` was attempted: the kind node image was pulled, but Docker
+  returned `read-only file system` when creating worker containers because C:
+  was 100% full. No Kubernetes resources were created. This is a host
+  environment issue, not a project defect; see `docs/SETUP.md`.
+- No AWS resources created.
+
+### 2026-11-21 — Phase 3 verification fixes
+
+- Diagnosed a Kyverno sync failure caused by CRDs larger than the 262144-byte
+  Kubernetes annotation limit. Added `ServerSideApply=true` and
+  `ClientSideApplyMigration=false` to all platform Applications; ADR-011.
+- Diagnosed a second stall caused by Kyverno's post-upgrade migration Job.
+  Disabled `upgrade.legacyPolicyCheck` and `migration` for the disposable local
+  cluster; ADR-012.
+- Added `scripts/preload-images.sh` and wired it into `local-up.sh`. It pulls
+  every pinned runtime image on the host and loads it into every kind node,
+  preserving `@sha256:` pins in the archive manifest.
+- Raised Argo CD repo-server and exec timeouts to 300 seconds for slow chart
+  downloads, and disabled Dex for the local demo.
+- Re-preloading a busy cluster saturated the Docker disk; etcd logged
+  `slow fdatasync` and control-plane leader leases were briefly lost. The
+  helper is documented to run before platform apps start, and `local-up` already
+  does that. A clean rebuild is the recovery path.
+- `make check` passed: all pre-commit hooks, `gitops-validate`, gitleaks,
+  checkov (194 Terraform and 131 Dockerfile checks pass, 0 fail) and 15 tests.
+- A final clean `local-down`/`local-up` was started with no competing disk work.
+  It was paused by the human at 9 of 21 preloaded images because it was after
+  midnight; Argo CD had not been installed and no Applications existed yet.
+- No AWS resources created.
+
+### 2026-11-22 — Phase 3 final verification
+
+- Resumed with a fresh `make local-down` and `make local-up` after Docker
+  Desktop was restarted. The rebuild completed with `exit=0` and no manual
+  cluster steps.
+- All six platform Applications reached `Healthy`; the root sync succeeded.
+- `kyverno-policies` initially reported `Unknown` sync because it was the only
+  Git-path child Application and was pinned to `main` while the root followed
+  `phase/3-platform`. Fixed the committed revision and recorded ADR-013.
+- Re-ran `make check` after the fix: `exit=0`, all pre-commit hooks,
+  `gitops-validate`, gitleaks (no leaks), checkov (194 Terraform passed, 0
+  failed, 37 skipped; 131 Dockerfile passed, 0 failed) and 15 tests passed.
+- Verified with `kubectl get applications -n argocd`: `argo-rollouts`,
+  `ingress-nginx`, `kyverno`, `kyverno-policies`, `logging`, `monitoring` and
+  `root` are all `Synced`/`Healthy`; root operation `Succeeded`.
+- Verified `kubectl get validatingpolicies.policies.kyverno.io -A`: all five
+  policies are `READY`.
+- No AWS resources created.
+
+### 2026-11-21 — Phase 2 complete
+
+- Built `apps/api`: FastAPI service with health/ready/metrics/items endpoints,
+  structured JSON logging, pydantic-settings, Postgres + Redis clients with
+  retry, SQLAlchemy models, Prometheus instrumentation.
+- Built `apps/worker`: FastAPI service with health/ready/metrics/stats and a
+  background Redis-list consumer loop with graceful shutdown.
+- Built `apps/frontend`: static HTML/CSS/JS served by nginx, with security
+  headers and healthcheck.
+- Added `apps/docker-compose.yml` wiring postgres, redis, api, worker, frontend.
+- Multi-stage Dockerfiles (non-root UID 1000, read-only-friendly, hadolint clean).
+- Added `sql/init.sql` for the items table.
+- Tests: 9 (api) + 6 (worker) passing; ruff clean; hadolint clean; yamllint
+  clean; all three images build and smoke-tested (health endpoints return 200).
+- No AWS resources created.
 
 ### 2026-11-21 — Phase 1 complete
 

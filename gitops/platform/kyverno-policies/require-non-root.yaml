@@ -1,0 +1,24 @@
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: require-non-root
+  annotations:
+    policies.kyverno.io/title: Require non-root containers
+    policies.kyverno.io/category: Pod Security
+    policies.kyverno.io/severity: high
+spec:
+  validationActions: ["Deny"]
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods"]
+  matchConditions:
+    - name: app-namespace
+      expression: "object.metadata.?namespace.orValue('').startsWith('app-')"
+  validations:
+    - expression: "object.spec.?securityContext.?runAsNonRoot.orValue(false) == true"
+      message: "Pod securityContext must set runAsNonRoot: true."
+    - expression: "object.spec.containers.all(c, c.?securityContext.?allowPrivilegeEscalation.orValue(true) == false)"
+      message: "Containers must not allow privilege escalation."

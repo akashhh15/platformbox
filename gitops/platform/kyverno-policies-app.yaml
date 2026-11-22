@@ -1,0 +1,25 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kyverno-policies
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: platform
+  source:
+    repoURL: https://github.com/akashhh15/platformbox.git
+    # This is the only Git-path child Application. It must follow the same
+    # revision as the root app; main does not contain Phase 3 until the PR is
+    # merged. See ADR-013.
+    targetRevision: phase/3-platform
+    path: gitops/platform/kyverno-policies
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kyverno
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

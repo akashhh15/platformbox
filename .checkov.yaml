@@ -13,3 +13,7 @@ skip-path:
   - .venv
   - tools
   - node_modules
+  # Kyverno policy test data. These pods deliberately model edge cases (missing
+  # labels, probes, limits, etc.), so production hardening checks do not apply.
+  # checkov matches skip-path by directory name, so use the bare name.
+  - fixtures

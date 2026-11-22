@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Platform in a Box</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="container">
+    <h1>Platform in a Box</h1>
+    <p class="subtitle">A production-style cloud platform, running locally at zero cost.</p>
+
+    <section class="card">
+      <h2>API status</h2>
+      <p id="status">checking...</p>
+      <button id="refresh">Refresh</button>
+    </section>
+
+    <section class="card">
+      <h2>Create an item</h2>
+      <form id="item-form">
+        <input type="text" id="name" placeholder="name" required />
+        <input type="text" id="description" placeholder="description" />
+        <button type="submit">Create</button>
+      </form>
+      <ul id="items"></ul>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
