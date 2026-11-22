@@ -97,8 +97,10 @@ make check
 security scans and tests that exist at the current phase. `make validate` also
 runs `terraform test` with mock providers and `scripts/apps-contract.sh`, which
 compare the local overlay with the AWS overlays and assert that only the
-documented substitutions differ (ADR-020). Targets for later phases print a
-clear "not implemented until Phase N" message and exit 0.
+documented substitutions differ (ADR-020). `make lint` includes
+`workflows-validate`, which runs `actionlint` and the offline GitLab CI
+contract checks. Targets for later phases print a clear "not implemented until
+Phase N" message and exit 0.
 
 ## 4. Local quickstart
 
@@ -191,50 +193,141 @@ No AWS account, registry credential or domain is needed. Details are in
 
 ## 5. GitHub repository setup
 
-1. Create an empty repository named `platformbox`.
-2. Push `main` and the `phase/0-foundation` branch.
-3. Replace `@REPLACE_ME` in `.github/CODEOWNERS` with your GitHub username or
-   team.
-4. Protect `main` with these settings:
+1. Confirm the `origin` remote points at your repository. Push `main` and the
+   current phase branch; never push directly to `main` during a phase.
+2. Protect `main` with these settings:
    - Require a pull request before merging.
    - Require at least one approval.
    - Require status checks to pass before merging.
    - Require conversation resolution.
    - Require linear history.
    - Do not allow force pushes or deletions.
-5. Set the default GitHub Actions token permissions to read-only. Workflows
-   request only the permissions they need.
-6. Create a `dev` environment with required reviewers only if you intend to
-   run the optional AWS path. The local path needs no environment.
+   - If you restrict who can push, add the identity that owns the write-back
+     token described below to the bypass list. Without this, the ADR-003
+     commit from GitLab CI will be rejected by branch protection.
+3. Set the default GitHub Actions token permissions to read-only. Every
+   workflow declares its own minimal `permissions:` block.
+4. Create a `dev` environment with required reviewers. The
+   `terraform-apply` workflow waits for approval there. Leaving the job
+   waiting is a safe way to test it; approving it creates AWS resources.
+5. Add the secrets and variables below. Use repository-level values for
+   read-only plan configuration; never paste a value into a workflow file.
 
-### Repository secrets and variables
+For phase pull requests, `@atharvvv10` approves and `@akashhh15` merges. Do not
+self-approve, use an admin bypass, or push directly to `main`.
 
-Add these only when the relevant phase needs them. Never commit a value.
+### GitHub secrets
 
-| Name | Kind | Used by | Purpose |
-|---|---|---|---|
-| `SLACK_WEBHOOK_URL` | Secret | Phase 7 | Alertmanager Slack receiver |
-| `GITOPS_WRITE_TOKEN` | Secret | Phase 5 | Fine-grained token used by GitLab CI to write image digests back to GitHub |
-| `INFRACOST_API_KEY` | Secret | Phase 5/10 | Optional cost estimates for the AWS path |
-| `AWS_PLAN_ROLE_ARN` | Variable | Phase 5 | Optional read-only OIDC role for Terraform plan |
-| `AWS_APPLY_ROLE_ARN` | Variable | Phase 5 | Optional apply role, restricted to `main` and the `dev` environment |
+| Name | Used by | Purpose |
+|---|---|---|
+| `GITLAB_MIRROR_TOKEN` | `mirror-to-gitlab.yml` | GitLab personal or project access token with `write_repository` on the target project |
+| `INFRACOST_API_KEY` | `terraform-ci.yml` | Optional Infracost API key for the PR cost diff |
+
+### GitHub variables
+
+| Name | Used by | Purpose |
+|---|---|---|
+| `GITLAB_PROJECT_PATH` | `mirror-to-gitlab.yml` | Target GitLab path, for example `my-group/platformbox` |
+| `AWS_PLAN_ROLE_ARN` | `terraform-ci.yml`, `drift-detection.yml` | Read-only OIDC role for `terraform plan` |
+| `AWS_APPLY_ROLE_ARN` | `terraform-apply.yml` | Apply OIDC role; only trusted for `main` and the protected `dev` environment |
+| `TF_STATE_BUCKET` | plan, apply and drift workflows | S3 state bucket created by `infra/bootstrap` |
+| `AWS_REGION` | plan, apply and drift workflows | Optional; defaults to `ap-south-1` |
+
+`GITOPS_WRITE_TOKEN` is **not** a GitHub Actions secret. It is a GitHub
+fine-grained personal access token used by GitLab CI, so it is stored as a
+GitLab CI/CD variable.
 
 ## 6. GitLab project setup
 
-1. Create a project named `cloud-platform-in-a-box`.
-2. Configure repository mirroring from GitHub, or use the GitHub Actions
-   mirror workflow added in Phase 5.
-3. Protect `main` and require pipelines to pass.
-4. Enable the Container Registry.
-5. Add CI/CD variables (masked and protected where appropriate):
-   - `GITOPS_WRITE_TOKEN` — same fine-grained token as GitHub, scoped to
-     `Contents: Read and write` on this repository only.
-   - `SLACK_WEBHOOK_URL` — optional, Phase 7.
-   - `AWS_ECR_PUSH_ROLE_ARN` — optional, only for the AWS path.
-6. Add the `id_tokens` block in `.gitlab-ci.yml` in Phase 5 for Cosign keyless
-   signing and, optionally, AWS OIDC.
+1. Create the GitLab project and record its path for `GITLAB_PROJECT_PATH`.
+2. The `mirror-to-gitlab` workflow pushes `main` to it. If `main` is protected,
+   allow the mirror token to push to it.
+3. Protect `main` and require a successful pipeline before merging.
+4. Use GitLab.com shared runners or a self-hosted runner with the Docker
+   executor. The Buildah jobs do not need privileged mode or a Docker socket.
+5. Add these CI/CD variables. Mark the token masked and protected.
 
-## 7. Slack alerts (enabled)
+| Name | Used by | Purpose |
+|---|---|---|
+| `GITOPS_WRITE_TOKEN` | `deploy-gitops-dev` | Fine-grained GitHub PAT with `Contents: Read and write` on this repository, allowed to push the write-back commit |
+| `GITHUB_REPOSITORY` | `deploy-gitops-dev` | GitHub repository in `owner/name` form, for example `akashhh15/platformbox` |
+| `ECR_REGISTRY` | build, sign and write-back jobs | ECR host, for example `123456789012.dkr.ecr.ap-south-1.amazonaws.com`; take it from the Terraform ECR output |
+| `AWS_ECR_PUSH_ROLE_ARN` | build and sign jobs | OIDC role trusted for this GitLab project and `main`; no static AWS keys |
+| `AWS_REGION` | build and sign jobs | Optional; the pipeline defaults to `ap-south-1` |
+
+The `id_tokens` for Sigstore (`aud: sigstore`) and AWS STS
+(`aud: sts.amazonaws.com`) are declared in `.gitlab-ci.yml`; they are not
+manual variables. The AWS IAM roles must trust `https://gitlab.com` with a
+subject scoped to this project and `main`.
+
+## 7. Pipeline test plan (human-run)
+
+The agent can validate syntax and contract shape offline, but it cannot run
+GitHub Actions or GitLab CI. Run the following checks yourself.
+
+### GitHub Actions
+
+1. Open a test pull request from a branch in the same repository with a
+   Conventional Commit title such as `ci: test github actions`. Touch a file
+   under `infra/` and a file under `gitops/` so the path-filtered workflows
+   also run. A harmless comment in `infra/environments/dev/main.tf` and
+   `gitops/apps/overlays/dev/kustomization.yaml` is enough.
+2. Confirm these checks appear and pass: `conventional-title`,
+   `static-checks`, `render and validate manifests`, `gitleaks`,
+   `workflow configuration`, `dependency review` and `CodeQL Python`.
+3. With `AWS_PLAN_ROLE_ARN`, `TF_STATE_BUCKET` and `INFRACOST_API_KEY` set,
+   confirm `plan dev` and `cost estimate` also pass and post their PR
+   comments. Exit code `2` from `terraform plan` is expected when changes are
+   proposed.
+4. Open a second test PR from a **fork**, touching `infra/` again. Confirm
+   `plan dev` and `cost estimate` are skipped and that no AWS credentials are
+   configured in that run.
+5. Run **Actions → drift-detection → Run workflow**. It should run
+   `scheduled dev plan` and open or update a drift issue. It must not apply.
+6. Test `terraform-apply` safely by merging an infra PR but leaving the
+   `dev` environment approval pending. Confirm the job waits. Do **not**
+   approve unless you intend to create real AWS resources.
+7. Merge the Phase 5 PR to `main`. Confirm `mirror-to-gitlab` pushes `main` to
+   the GitLab project. A later commit that changes only `gitops/**` must not
+   trigger the mirror.
+
+### GitLab CI
+
+1. Set every GitLab variable from section 6, including the ECR role and
+   registry. Push a branch with a change under `apps/`, or use
+   **Build → Pipelines → Run pipeline** with that branch as the ref.
+2. Confirm the `lint`, `test`, `build`, `scan`, `sign` and `publish` stages all
+   run. The service jobs are parallel matrices named `build: [api]`,
+   `trivy-image: [api]`, `sbom: [api]` and `sign: [api]`, with equivalent jobs
+   for `worker` and `frontend`. `deploy-gitops-dev` is manual on every ref and
+   should not run automatically.
+3. Download the job artifacts and check: JUnit XML from `pytest`, SAST and
+   secret detection reports, `trivy-fs.json`, three `*-image.json` reports,
+   three `*.cyclonedx.json` SBOMs, `release.json` and `pipeline-summary.md`.
+4. In a `sign: [<service>]` job log, confirm the image is a digest reference
+   with exactly one `@sha256:` and that Cosign reports a stored signature and
+   attestation.
+   Verify it from your machine (replace the project path):
+   ```bash
+   cosign verify "$IMAGE" \
+     --certificate-identity \
+       "https://gitlab.com/<namespace>/<project>//.gitlab-ci.yml@refs/heads/main" \
+     --certificate-oidc-issuer "https://gitlab.com"
+   ```
+5. In the ECR console, confirm the three repositories have immutable tags and
+   that the tags match `$CI_COMMIT_SHORT_SHA-$SERVICE`.
+6. On `main`, run the manual `deploy-gitops-dev` job. Confirm it pushes one
+   commit whose message contains `[skip ci]`, that only
+   `gitops/apps/overlays/dev/kustomization.yaml` changed, and that the new
+   image references are ECR digests.
+7. Confirm that the write-back commit starts **no** new GitLab pipeline and
+   **no** GitHub mirror run. Push another commit that changes only `gitops/**`
+   as a negative test.
+8. Confirm a build job log contains `Assumed ... with short-lived STS
+   credentials` and that no `AWS_ACCESS_KEY_ID` or `AWS_SECRET_ACCESS_KEY`
+   CI variable exists.
+
+## 8. Slack alerts (enabled)
 
 Slack is optional at runtime but supported by design. The Alertmanager
 configuration uses a null receiver when no webhook is configured, so the
@@ -250,7 +343,7 @@ To enable Slack:
 3. Set the webhook secret name in the monitoring values in Phase 7.
 4. Verify with a test alert in Phase 7.
 
-## 8. Optional AWS production path (costs money)
+## 9. Optional AWS production path (costs money)
 
 **Do not run this unless you explicitly want a paid demo.** The agent never
 runs `terraform apply`, `terraform destroy`, or any AWS CLI command that
@@ -270,16 +363,25 @@ If you choose to use it:
 Region default: `ap-south-1`. Every environment and module takes the region as
 a variable; nothing is hardcoded.
 
-## 9. Human tasks
+## 10. Human tasks
 
 These cannot be completed by the agent. Check them off as you go.
 
 - [x] Start Docker Desktop and confirm `docker info` succeeds.
 - [x] Set `git config --global user.name` and `user.email`.
 - [x] Create the GitHub repository and push the branches.
-- [x] Replace `@REPLACE_ME` in `.github/CODEOWNERS`.
+- [x] Confirm `.github/CODEOWNERS` names the real repository owner.
 - [x] Configure branch protection on `main`.
-- [ ] Create the GitLab project when Phase 5 starts.
+- [ ] Add every GitHub secret and variable from section 5.
+- [ ] Create the GitLab project and record its path in `GITLAB_PROJECT_PATH`.
+- [ ] Add every GitLab CI/CD variable from section 6, including the ECR OIDC
+      role and registry host.
+- [ ] Allow the write-back identity to push to protected `main`, or add its
+      bypass rule; otherwise ADR-003 cannot work.
+- [ ] Configure the GitHub, GitLab and AWS OIDC trust relationships with the
+      exact repository/project, branch and environment restrictions.
+- [ ] Run the GitHub and GitLab pipeline tests in section 7. Do not approve
+      `terraform-apply` unless you intend to create AWS resources.
 - [ ] Supply the Slack webhook when Phase 7 starts.
 - [ ] Decide whether to run the optional AWS path; if yes, complete the AWS
       account, MFA and budget steps above.
@@ -299,7 +401,7 @@ These cannot be completed by the agent. Check them off as you go.
 - [ ] Run `make check` on a fresh clone and report any environment-specific
       failure.
 
-## 10. Troubleshooting
+## 11. Troubleshooting
 
 ### `make: command not found`
 
@@ -439,7 +541,7 @@ must use the same revision as the root app; see
 status with `Unknown` sync usually means the path does not exist at the
 Application's `targetRevision`.
 
-## 11. Security notes
+## 12. Security notes
 
 - No secrets in Git. Gitleaks runs in pre-commit and in CI.
 - The AWS path uses OIDC federation, never static access keys.

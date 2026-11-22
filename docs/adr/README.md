@@ -28,5 +28,7 @@ one with a new ADR instead of rewriting history.
 | [ADR-018](ADR-018-canary-without-steps.md) | Canary strategy without steps for Phase 4 | Accepted |
 | [ADR-019](ADR-019-gate-aws-secret-store-by-cluster.md) | Gate the AWS secret store by target cluster | Accepted |
 | [ADR-020](ADR-020-offline-contract-evidence.md) | Offline contract evidence for the AWS path | Accepted |
+| [ADR-021](ADR-021-buildah-over-kaniko.md) | Buildah over Kaniko and Docker daemon builds in GitLab CI | Accepted |
+| [ADR-022](ADR-022-ci-trust-boundaries-and-offline-validation.md) | CI trust boundaries, digest-based signing and offline workflow validation | Accepted |
 
 Use [template.md](template.md) for a new ADR.
