@@ -59,6 +59,7 @@ runtime is a local `kind` cluster; AWS Terraform is validated with
 | 2026-11-22 | `app-data` uses baseline PSS for the pinned PostgreSQL image | ADR-017 |
 | 2026-11-22 | Rollout uses canary with no steps as a basic rolling update | ADR-018 |
 | 2026-11-22 | AWS secret store is EKS-gated so local kind stays Healthy | ADR-019 |
+| 2026-11-22 | Strengthen offline evidence instead of emulating AWS locally | ADR-020 |
 
 ## Open items
 
@@ -82,6 +83,9 @@ runtime is a local `kind` cluster; AWS Terraform is validated with
   api, worker and frontend with in-cluster Postgres/Redis; `/health`, `/ready`,
   frontend `/` and the opt-in `/chaos/fail` endpoint returned the expected
   results. No AWS resource was created.
+- Offline evidence was strengthened after review: overlay contract/parity
+  assertions (154 checks) and Terraform mock-provider tests for ECR, budgets,
+  IRSA and bootstrap now run in `make validate`. ADR-020 records the decision.
 
 ## Human tasks
 

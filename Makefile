@@ -19,7 +19,8 @@ TOOLS_BIN := tools/bin
 export PATH := $(CURDIR)/$(VENV_BIN):$(CURDIR)/$(TOOLS_BIN):$(PATH)
 
 .PHONY: help tools tools-check pre-commit-install fmt lint validate scan test check \
-        local-up local-down up down demo gitops-validate local-smoke aws-plan aws-apply clean
+        terraform-test contract local-up local-down up down demo gitops-validate \
+        local-smoke aws-plan aws-apply clean
 
 ##@ General
 
@@ -47,8 +48,18 @@ lint: ## Run all linters and format checks
 	@echo "==> Linting (pre-commit)"
 	pre-commit run --all-files
 
-validate: gitops-validate ## Validate Terraform, Kubernetes and GitOps manifests
+validate: terraform-test gitops-validate contract ## Validate Terraform, Kubernetes and GitOps manifests
 	@echo "==> All validation gates passed."
+
+terraform-test: ## Run Terraform mock-provider contract tests (no AWS calls)
+	@echo "==> Terraform contract tests (mock provider)"
+	@for dir in infra/bootstrap infra/modules/ecr infra/modules/budgets infra/modules/irsa; do \
+		echo "    $$dir"; \
+		(cd "$$dir" && terraform test -no-color >/dev/null); \
+	done
+
+contract: ## Assert overlay parity and the documented local/AWS substitutions
+	@bash scripts/apps-contract.sh
 
 scan: ## Run secret and IaC security scans
 	@echo "==> Secret scan (gitleaks)"

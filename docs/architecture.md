@@ -7,8 +7,12 @@ list.
 
 **How to verify the claims.** Run `make check` for static validation and
 `make local-smoke` for runtime evidence. The exact rendered resource counts are
-printed by `scripts/gitops-validate.sh`. Anything that needs AWS is labelled as
-design-only and has not been executed.
+printed by `scripts/gitops-validate.sh`. `scripts/apps-contract.sh` asserts the
+shared workload contract and the documented local/AWS substitutions across all
+four overlays; `terraform test` checks the ECR, budgets, IRSA and bootstrap
+contracts with mock providers. ADR-020 records why the AWS path is verified this
+way. Anything that needs AWS is labelled as design-only and has not been
+executed.
 
 ## Layers
 
