@@ -7,7 +7,7 @@
 | 0 — Repository foundation | Complete — awaiting review | Skeleton, Makefile, pre-commit, docs, ADRs; `make check` passes |
 | 1 — Terraform foundation | Complete — awaiting review | Bootstrap, 8 modules, dev/prod environments, 4 ADRs; fmt/validate/tflint/checkov/trivy/test pass |
 | 2 — Application and containers | Complete — awaiting review | FastAPI api/worker, static frontend, compose; ruff/pytest/hadolint pass; images build |
-| 3 — GitOps and platform layer | Complete — verified locally | kind config, Argo CD app-of-apps, ingress, CEL policies, monitoring, logging, rollouts; `make check` passes; clean rebuild succeeded; all Applications `Synced`/`Healthy` |
+| 3 — GitOps and platform layer | Complete — merged and verified | kind config, Argo CD app-of-apps, ingress, CEL policies, monitoring, logging, rollouts; `make check` passes; clean rebuild succeeded; all Applications `Synced`/`Healthy` |
 | 4 — Application delivery | Not started | Kustomize base and dev/staging/prod overlays |
 | 5 — CI/CD | Not started | GitHub Actions and GitLab CI, SBOM, signing, write-back |
 | 6 — DevSecOps and policy | Not started | Kyverno policies and tests, threat model |
@@ -86,9 +86,9 @@ are in [docs/SETUP.md](docs/SETUP.md).
 - [x] Replace `@REPLACE_ME` in `.github/CODEOWNERS` with the real owner.
 - [ ] Create the GitLab project and mirror credentials when Phase 5 starts.
 - [ ] Supply the Slack webhook through a secret, never through Git.
-- [ ] After final verification, mark the Phase 3 PR ready and merge it through
+- [x] After final verification, mark the Phase 3 PR ready and merge it through
   GitHub. Do not push directly to `main`.
-- [ ] After the merge, change `gitops/platform/kyverno-policies-app.yaml` to
+- [x] After the merge, change `gitops/platform/kyverno-policies-app.yaml` to
   `targetRevision: main` if the `phase/3-platform` branch will be deleted. See
   ADR-013.
 - [ ] Do **not** run `make aws-apply` unless you explicitly want a paid AWS
@@ -163,6 +163,13 @@ are in [docs/SETUP.md](docs/SETUP.md).
   `root` are all `Synced`/`Healthy`; root operation `Succeeded`.
 - Verified `kubectl get validatingpolicies.policies.kyverno.io -A`: all five
   policies are `READY`.
+- No AWS resources created.
+
+### 2026-11-22 — Phase 3 merged
+
+- PR #6 was approved by a reviewer with write access and merged into `main`.
+- Post-merge cleanup changes `kyverno-policies` back to `targetRevision: main`
+  so the review branch can be deleted safely. ADR-013 updated.
 - No AWS resources created.
 
 ### 2026-11-21 — Phase 2 complete
