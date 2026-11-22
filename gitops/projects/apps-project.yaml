@@ -8,8 +8,11 @@ spec:
   sourceRepos:
     - https://github.com/akashhh15/platformbox.git
   destinations:
+    # ApplicationSets generate apps for whichever EKS cluster carries the
+    # platformbox.io/target=eks label, so the server is dynamic. Namespace and
+    # source repository remain constrained. See ADR-015.
     - namespace: "app-*"
-      server: https://kubernetes.default.svc
+      server: "*"
   clusterResourceWhitelist: []
   namespaceResourceWhitelist:
     - group: "*"

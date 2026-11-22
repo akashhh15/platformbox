@@ -47,7 +47,9 @@ ApplicationSets generate nothing on kind. The local smoke test applies
 
 - The local cluster stays clean and the smoke test remains self-contained.
 - Registering the EKS cluster with the required label is a documented human
-  task; without it, no environment Applications appear.
+  task; without it, no environment Applications appear. The `apps` AppProject
+  therefore allows a dynamic destination `server` while still restricting
+  namespaces to `app-*` and the source repository to this Git repository.
 - Application names include the normalized cluster name, so adding a second
   matching cluster cannot cause name collisions.
 - ApplicationSet resources are still synced by the root app and are validated
