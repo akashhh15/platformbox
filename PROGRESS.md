@@ -9,7 +9,7 @@
 | 2 — Application and containers | Complete — awaiting review | FastAPI api/worker, static frontend, compose; ruff/pytest/hadolint pass; images build |
 | 3 — GitOps and platform layer | Complete — merged and verified | kind config, Argo CD app-of-apps, ingress, CEL policies, monitoring, logging, rollouts; `make check` passes; clean rebuild succeeded; all Applications `Synced`/`Healthy` |
 | 4 — Application delivery | Complete — merged and verified | Kustomize base, dev/staging/prod overlays, ApplicationSets, local data/secret substitutes; `make check` and `make local-smoke` pass; PR #8 merged |
-| 5 — CI/CD | Complete — awaiting review | 7 GitHub workflows, GitLab CI with Buildah/Trivy/Syft/Cosign/ECR OIDC, digest write-back, offline workflow validator; live pipelines are human-run |
+| 5 — CI/CD | Complete — merged and verified | 7 GitHub workflows, GitLab CI with Buildah/Trivy/Syft/Cosign/ECR OIDC, digest write-back, offline workflow validator; PR #13 merged; live pipelines are human-run |
 | 6 — DevSecOps and policy | Not started | Kyverno policies and tests, threat model |
 | 7 — Observability and SLOs | Not started | Dashboards, recording rules, burn-rate alerts, runbooks |
 | 8 — Progressive delivery | Not started | Canary, analysis, automatic rollback, demo |
@@ -116,7 +116,7 @@ are in [docs/SETUP.md](docs/SETUP.md).
 
 ## Phase log
 
-### 2026-11-22 — Phase 5 implemented
+### 2026-11-22 — Phase 5 merged
 
 - Added seven GitHub Actions workflows: Terraform CI with fork-safe plan and
   Infracost comments, environment-gated apply, scheduled drift detection,
@@ -138,6 +138,12 @@ are in [docs/SETUP.md](docs/SETUP.md).
 - Optional cloud/cost checks skip when their variables are unset, and
   dependency review is best-effort when GitHub's dependency graph API is
   unavailable.
+- Live GitHub PR checks exposed three workflow defects that were fixed on the
+  branch: a relative TFLint config path, Trivy findings from downloaded third-
+  party Terraform modules, and hard failures when optional integrations were
+  unconfigured.
+- Pull request #13 was approved by `atharvvv10`, merged by `akashhh15` as merge
+  commit `c0c6575`, and the local `main` branch was fast-forwarded and rechecked.
 - Live GitHub and GitLab pipelines were not run by the agent. Human test steps
   and the full secret/variable inventory are in `docs/SETUP.md` §§5–7. No AWS
   resource was created.
