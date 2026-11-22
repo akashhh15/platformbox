@@ -1,0 +1,96 @@
+# Two ApplicationSets generate one Application per environment/namespace.
+#
+# The cluster generator only matches registered cluster Secrets carrying
+# `platformbox.io/target: eks`. The local kind cluster has no such Secret, so
+# nothing is generated locally; the local smoke test uses gitops/apps/local.
+# See ADR-015.
+#
+# Dev and staging auto-sync (with prune and self-heal). Prod has no automated
+# block, so it is sync-manual. See docs/architecture.md for the promotion model.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: apps-continuous
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - matrix:
+        generators:
+          - clusters:
+              selector:
+                matchLabels:
+                  argocd.argoproj.io/secret-type: cluster
+                  platformbox.io/target: eks
+          - list:
+              elements:
+                - env: dev
+                  namespace: app-dev
+                - env: staging
+                  namespace: app-staging
+  template:
+    metadata:
+      name: '{{.nameNormalized}}-{{.env}}-apps'
+      namespace: argocd
+      annotations:
+        argocd.argoproj.io/sync-wave: "6"
+    spec:
+      project: apps
+      source:
+        repoURL: https://github.com/akashhh15/platformbox.git
+        targetRevision: main
+        path: 'gitops/apps/overlays/{{.env}}'
+      destination:
+        server: '{{.server}}'
+        namespace: '{{.namespace}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - ClientSideApplyMigration=false
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: apps-prod
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - matrix:
+        generators:
+          - clusters:
+              selector:
+                matchLabels:
+                  argocd.argoproj.io/secret-type: cluster
+                  platformbox.io/target: eks
+          - list:
+              elements:
+                - env: prod
+                  namespace: app-prod
+  template:
+    metadata:
+      name: '{{.nameNormalized}}-{{.env}}-apps'
+      namespace: argocd
+      annotations:
+        argocd.argoproj.io/sync-wave: "6"
+    spec:
+      project: apps
+      source:
+        repoURL: https://github.com/akashhh15/platformbox.git
+        targetRevision: main
+        path: 'gitops/apps/overlays/{{.env}}'
+      destination:
+        server: '{{.server}}'
+        namespace: '{{.namespace}}'
+      # No automated block: a human must click SYNC in Argo CD for prod.
+      syncPolicy:
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - ClientSideApplyMigration=false
