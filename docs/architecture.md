@@ -60,8 +60,10 @@ Per service the base provides:
 | worker | Deployment | 8001 | `/health`, `/ready` | ServiceMonitor, HPA, PDB, ExternalSecret |
 | frontend | Deployment | 8080 (Service 80) | `/` | HPA, PDB, ALB Ingress |
 
-The canary strategy and Prometheus analysis are Phase 8. Phase 4 uses a plain
-rolling update that works with the installed Rollouts controller.
+The canary strategy steps and Prometheus analysis are Phase 8. Phase 4 uses a
+`canary` strategy with no steps, which Argo Rollouts treats as a basic rolling
+update; the pinned v1.7.2 CRD does not support `spec.strategy.rollingUpdate`.
+See ADR-018.
 
 ## Image placeholder mechanism
 
@@ -138,3 +140,4 @@ guessed here.
 - [ADR-015: Cluster-gated ApplicationSets](adr/ADR-015-cluster-gated-applicationsets.md)
 - [ADR-016: Local fake secret store](adr/ADR-016-local-fake-secret-store.md)
 - [ADR-017: Baseline PSS for local data](adr/ADR-017-baseline-pss-for-local-data.md)
+- [ADR-018: Canary strategy without steps](adr/ADR-018-canary-without-steps.md)
