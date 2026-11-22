@@ -50,6 +50,19 @@ jobs:
       - name: Terraform format check
         run: terraform fmt -check -recursive infra
 
+      # Run before terraform init so downloaded third-party modules are not
+      # scanned as if they were our own configuration.
+      - name: Trivy config scan
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
+        with:
+          scan-type: config
+          scan-ref: infra
+          version: v0.76.2
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+          format: table
+          trivyignores: .trivyignore
+
       - name: Terraform init and validate
         run: |
           set -euo pipefail
@@ -66,17 +79,6 @@ jobs:
 
       - name: Checkov
         run: checkov -d infra --framework terraform --quiet --compact
-
-      - name: Trivy config scan
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
-        with:
-          scan-type: config
-          scan-ref: infra
-          version: v0.76.2
-          severity: HIGH,CRITICAL
-          exit-code: '1'
-          format: table
-          trivyignores: .trivyignore
 
   plan:
     name: plan dev
