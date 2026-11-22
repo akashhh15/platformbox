@@ -135,9 +135,12 @@ are in [docs/SETUP.md](docs/SETUP.md).
   reported no workflow errors; `bash scripts/helm-lint.sh` linted all seven
   pinned charts; `./tools/bin/make.exe check` passed with 160 overlay contract
   checks, 0 failures, and 15 tests.
-- Live GitHub and GitLab pipelines were not run. Human test steps and the full
-  secret/variable inventory are in `docs/SETUP.md` §§5–7. No AWS resource was
-  created.
+- Optional cloud/cost checks skip when their variables are unset, and
+  dependency review is best-effort when GitHub's dependency graph API is
+  unavailable.
+- Live GitHub and GitLab pipelines were not run by the agent. Human test steps
+  and the full secret/variable inventory are in `docs/SETUP.md` §§5–7. No AWS
+  resource was created.
 
 ### 2026-11-21 — Phase 3 implemented
 

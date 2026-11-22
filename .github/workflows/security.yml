@@ -74,6 +74,9 @@ jobs:
     name: dependency review
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
+    # Best-effort only: the dependency-review API returns 403 when the
+    # repository's dependency graph is disabled or unavailable.
+    continue-on-error: true
     permissions:
       contents: read
     steps:

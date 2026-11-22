@@ -274,11 +274,14 @@ GitHub Actions or GitLab CI. Run the following checks yourself.
    `gitops/apps/overlays/dev/kustomization.yaml` is enough.
 2. Confirm these checks appear and pass: `conventional-title`,
    `static-checks`, `render and validate manifests`, `gitleaks`,
-   `workflow configuration`, `dependency review` and `CodeQL Python`.
-3. With `AWS_PLAN_ROLE_ARN`, `TF_STATE_BUCKET` and `INFRACOST_API_KEY` set,
-   confirm `plan dev` and `cost estimate` also pass and post their PR
-   comments. Exit code `2` from `terraform plan` is expected when changes are
-   proposed.
+   `workflow configuration` and `CodeQL Python`. `dependency review` is
+   best-effort: it passes with a warning if GitHub's dependency graph API is
+   unavailable. Enable the dependency graph in repository settings to make it
+   enforce dependency policy.
+3. `plan dev` is skipped unless `AWS_PLAN_ROLE_ARN` and `TF_STATE_BUCKET` are
+   set; `cost estimate` is skipped unless `INFRACOST_API_KEY` is set. With
+   those values present, confirm both checks pass and post their PR comments.
+   Exit code `2` from `terraform plan` is expected when changes are proposed.
 4. Open a second test PR from a **fork**, touching `infra/` again. Confirm
    `plan dev` and `cost estimate` are skipped and that no AWS credentials are
    configured in that run.

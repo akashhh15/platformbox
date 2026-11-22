@@ -67,6 +67,15 @@ needed because neither CI system interprets the other's path filters.
 The script is wired into `make lint`, so `make check` fails before a PR is
 opened if a workflow regresses. It does not claim to execute either pipeline.
 
+### Optional integrations never block an unrelated PR
+
+`plan dev` requires the `AWS_PLAN_ROLE_ARN` and `TF_STATE_BUCKET` variables, and
+`cost estimate` requires `INFRACOST_API_KEY`. Their jobs skip when the relevant
+value is unset instead of failing with an opaque credential error. The
+`dependency review` job is `continue-on-error` because the dependency-review
+API returns 403 on repositories where the dependency graph is disabled. The
+human setup guide records how to enable or configure each check.
+
 ## Alternatives considered
 
 | Alternative | Why it was not chosen |
