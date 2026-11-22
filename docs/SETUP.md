@@ -378,6 +378,12 @@ If a sync waits on `kyverno-migrate-resources`, the Kyverno upgrade hooks are
 still enabled. They are disabled in `gitops/platform/kyverno.yaml` because the
 local cluster starts empty; see [ADR-012](adr/ADR-012-disable-kyverno-migration-hooks-locally.md).
 
+`kyverno-policies` is the only child Application with a Git `path` source. It
+must use the same revision as the root app while Phase 3 is under review; see
+[ADR-013](adr/ADR-013-git-path-child-apps-follow-root-revision.md). A `Healthy`
+status with `Unknown` sync usually means the path does not exist at the
+Application's `targetRevision`.
+
 ## 11. Security notes
 
 - No secrets in Git. Gitleaks runs in pre-commit and in CI.

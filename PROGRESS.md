@@ -7,7 +7,7 @@
 | 0 — Repository foundation | Complete — awaiting review | Skeleton, Makefile, pre-commit, docs, ADRs; `make check` passes |
 | 1 — Terraform foundation | Complete — awaiting review | Bootstrap, 8 modules, dev/prod environments, 4 ADRs; fmt/validate/tflint/checkov/trivy/test pass |
 | 2 — Application and containers | Complete — awaiting review | FastAPI api/worker, static frontend, compose; ruff/pytest/hadolint pass; images build |
-| 3 — GitOps and platform layer | Complete — final clean rebuild paused overnight | kind config, Argo CD app-of-apps, ingress, CEL policies, monitoring, logging, rollouts; `make check` passes; slow images preloaded locally; clean rebuild paused at 9/21 images and must be rerun tomorrow |
+| 3 — GitOps and platform layer | Complete — final sync verification in progress | kind config, Argo CD app-of-apps, ingress, CEL policies, monitoring, logging, rollouts; `make check` passes; clean rebuild succeeded; one Git-path child revision fixed and resyncing |
 | 4 — Application delivery | Not started | Kustomize base and dev/staging/prod overlays |
 | 5 — CI/CD | Not started | GitHub Actions and GitLab CI, SBOM, signing, write-back |
 | 6 — DevSecOps and policy | Not started | Kyverno policies and tests, threat model |
@@ -51,6 +51,7 @@ runtime is a local `kind` cluster; AWS Terraform is validated with
 | 2026-11-21 | Checkov skips test fixture directories; those pods model policy edge cases | .checkov.yaml |
 | 2026-11-21 | Argo CD server-side apply with client-side migration disabled for large CRDs | ADR-011 |
 | 2026-11-21 | Kyverno upgrade hooks disabled on the disposable local cluster | ADR-012 |
+| 2026-11-22 | Git-path child Application follows the root Application revision during review | ADR-013 |
 | 2026-11-21 | Slow third-party images are pulled on the host and preloaded into kind | scripts/preload-images.sh, docs/VERSIONS.md |
 
 ## Open items
@@ -66,10 +67,10 @@ runtime is a local `kind` cluster; AWS Terraform is validated with
   12 GB free and the kind cluster starts normally.
 - The Phase 3 pull request is open as a draft. It must be marked ready, approved
   and merged through GitHub before `main` contains these fixes.
-- The final clean `local-down`/`local-up` was paused overnight at 9 of 21
-  preloaded images. Argo CD was not installed yet, so no Applications existed.
-  Rerun `make local-down` then `make local-up` from a clean state tomorrow and
-  confirm all six platform Applications are `Synced` and `Healthy`.
+- The resumed clean `local-down`/`local-up` succeeded. All six child
+  Applications are `Healthy`; `kyverno-policies` initially stayed `Unknown`
+  because its Git path was pinned to `main` while the root app followed
+  `phase/3-platform`. The revision is fixed in Git and needs a final resync.
 
 ## Human tasks
 
@@ -86,6 +87,9 @@ are in [docs/SETUP.md](docs/SETUP.md).
 - [ ] Supply the Slack webhook through a secret, never through Git.
 - [ ] After final verification, mark the Phase 3 PR ready and merge it through
   GitHub. Do not push directly to `main`.
+- [ ] After the merge, change `gitops/platform/kyverno-policies-app.yaml` to
+  `targetRevision: main` if the `phase/3-platform` branch will be deleted. See
+  ADR-013.
 - [ ] Do **not** run `make aws-apply` unless you explicitly want a paid AWS
   demo. The local path costs $0.
 
@@ -139,7 +143,19 @@ are in [docs/SETUP.md](docs/SETUP.md).
 - A final clean `local-down`/`local-up` was started with no competing disk work.
   It was paused by the human at 9 of 21 preloaded images because it was after
   midnight; Argo CD had not been installed and no Applications existed yet.
-  Resume tomorrow with a fresh `make local-down` and `make local-up`.
+- No AWS resources created.
+
+### 2026-11-22 — Phase 3 final verification
+
+- Resumed with a fresh `make local-down` and `make local-up` after Docker
+  Desktop was restarted. The rebuild completed with `exit=0` and no manual
+  cluster steps.
+- All six platform Applications reached `Healthy`; the root sync succeeded.
+- `kyverno-policies` initially reported `Unknown` sync because it was the only
+  Git-path child Application and was pinned to `main` while the root followed
+  `phase/3-platform`. Fixed the committed revision and recorded ADR-013.
+- Re-ran the full quality gate after the change; result recorded in the final
+  phase report.
 - No AWS resources created.
 
 ### 2026-11-21 — Phase 2 complete

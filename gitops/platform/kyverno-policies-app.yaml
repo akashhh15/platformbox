@@ -9,7 +9,10 @@ spec:
   project: platform
   source:
     repoURL: https://github.com/akashhh15/platformbox.git
-    targetRevision: main
+    # This is the only Git-path child Application. It must follow the same
+    # revision as the root app; main does not contain Phase 3 until the PR is
+    # merged. See ADR-013.
+    targetRevision: phase/3-platform
     path: gitops/platform/kyverno-policies
   destination:
     server: https://kubernetes.default.svc
