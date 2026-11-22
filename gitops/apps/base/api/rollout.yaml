@@ -1,0 +1,113 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  annotations:
+    checkov.io/skip1: CKV_K8S_21=namespace is assigned by the environment overlay
+    checkov.io/skip2: CKV_K8S_43=CI replaces the placeholder tag with an immutable tag (ADR-014)
+    checkov.io/skip3: CKV_K8S_15=local images are preloaded into kind, so IfNotPresent is required
+    checkov.io/skip4: CKV_K8S_40=non-root UID 1000 matches the pinned Python image user
+    checkov.io/skip5: CKV_K8S_35=config is env-based; values come from an ExternalSecret, not literals
+  name: api
+  labels:
+    app.kubernetes.io/name: api
+    app.kubernetes.io/instance: platformbox
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: platformbox
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: api
+  # Phase 4 uses a plain rolling update. The canary strategy and Prometheus
+  # analysis are added in Phase 8.
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: api
+        app.kubernetes.io/instance: platformbox
+        app.kubernetes.io/version: "0.1.0"
+        app.kubernetes.io/component: api
+        app.kubernetes.io/part-of: platformbox
+    spec:
+      serviceAccountName: api
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: api
+          image: ghcr.io/akashhh15/platformbox/api:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: api-credentials
+                  key: DATABASE_URL
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: api-credentials
+                  key: REDIS_URL
+            - name: ENVIRONMENT
+              value: dev
+            - name: LOG_LEVEL
+              value: INFO
+            - name: FAULT_INJECTION_ENABLED
+              value: "false"
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 2
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: api

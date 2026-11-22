@@ -1,0 +1,22 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: api
+  labels:
+    app.kubernetes.io/name: api
+    app.kubernetes.io/instance: platformbox
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: platformbox
+    # kube-prometheus-stack's default serviceMonitorSelector is release=monitoring.
+    release: monitoring
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: api
+  namespaceSelector:
+    matchNames:
+      - app-dev
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s

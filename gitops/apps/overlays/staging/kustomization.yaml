@@ -1,0 +1,57 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml
+  - ../../base
+
+namespace: app-staging
+
+images:
+  - name: ghcr.io/akashhh15/platformbox/api
+    newTag: staging
+  - name: ghcr.io/akashhh15/platformbox/worker
+    newTag: staging
+  - name: ghcr.io/akashhh15/platformbox/frontend
+    newTag: staging
+
+patches:
+  - target:
+      group: monitoring.coreos.com
+      version: v1
+      kind: ServiceMonitor
+      name: api
+    patch: |-
+      - op: replace
+        path: /spec/namespaceSelector/matchNames/0
+        value: app-staging
+  - target:
+      group: monitoring.coreos.com
+      version: v1
+      kind: ServiceMonitor
+      name: worker
+    patch: |-
+      - op: replace
+        path: /spec/namespaceSelector/matchNames/0
+        value: app-staging
+  - target:
+      group: argoproj.io
+      version: v1alpha1
+      kind: Rollout
+      name: api
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/env/2/value
+        value: staging
+      - op: replace
+        path: /spec/template/spec/containers/0/env/4/value
+        value: "true"
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: worker
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/env/2/value
+        value: staging
