@@ -9,7 +9,7 @@
 | 2 — Application and containers | Complete — awaiting review | FastAPI api/worker, static frontend, compose; ruff/pytest/hadolint pass; images build |
 | 3 — GitOps and platform layer | Complete — merged and verified | kind config, Argo CD app-of-apps, ingress, CEL policies, monitoring, logging, rollouts; `make check` passes; clean rebuild succeeded; all Applications `Synced`/`Healthy` |
 | 4 — Application delivery | Complete — merged and verified | Kustomize base, dev/staging/prod overlays, ApplicationSets, local data/secret substitutes; `make check` and `make local-smoke` pass; PR #8 merged |
-| 5 — CI/CD | Not started | GitHub Actions and GitLab CI, SBOM, signing, write-back |
+| 5 — CI/CD | Complete — awaiting review | 7 GitHub workflows, GitLab CI with Buildah/Trivy/Syft/Cosign/ECR OIDC, digest write-back, offline workflow validator; live pipelines are human-run |
 | 6 — DevSecOps and policy | Not started | Kyverno policies and tests, threat model |
 | 7 — Observability and SLOs | Not started | Dashboards, recording rules, burn-rate alerts, runbooks |
 | 8 — Progressive delivery | Not started | Canary, analysis, automatic rollback, demo |
@@ -60,12 +60,15 @@ runtime is a local `kind` cluster; AWS Terraform is validated with
 | 2026-11-22 | Rollout uses canary with no steps as a basic rolling update | ADR-018 |
 | 2026-11-22 | AWS secret store is EKS-gated so local kind stays Healthy | ADR-019 |
 | 2026-11-22 | Strengthen offline evidence instead of emulating AWS locally | ADR-020 |
+| 2026-11-22 | Buildah 1.46.1 over archived Kaniko for unprivileged GitLab builds | ADR-021 |
+| 2026-11-22 | Sign the pushed digest, normalize artifacts in one helper, and layer loop prevention with offline workflow validation | ADR-022 |
 
 ## Open items
 
 - Git `user.name` and `user.email` are configured on this machine (no-reply).
 - The GitHub repository and branch protection are configured.
-- The GitLab project and mirror credentials are not created (Phase 5).
+- The GitLab project, mirror token, write-back token, ECR OIDC role and CI
+  variables are not created. The pipeline test plan is in docs/SETUP.md §7.
 - The Slack incoming webhook is not supplied yet; Alertmanager will use a null
   receiver until it is (Phase 7).
 - The optional AWS path has no account, budget e-mail or OIDC roles. This is
@@ -97,8 +100,11 @@ are in [docs/SETUP.md](docs/SETUP.md).
 - [x] Configure Git identity: `git config --global user.name "..."` and
   `git config --global user.email "..."`.
 - [x] Create the GitHub repository, push `main`, and enable branch protection.
-- [x] Replace `@REPLACE_ME` in `.github/CODEOWNERS` with the real owner.
-- [ ] Create the GitLab project and mirror credentials when Phase 5 starts.
+- [x] Confirm `.github/CODEOWNERS` names the real repository owner.
+- [ ] Create the GitLab project, mirror token, write-back token, ECR OIDC role
+      and every GitHub/GitLab variable listed in docs/SETUP.md §§5–6.
+- [ ] Run the GitHub and GitLab pipeline tests in docs/SETUP.md §7. Do not
+      approve `terraform-apply` unless you intend to create AWS resources.
 - [ ] Supply the Slack webhook through a secret, never through Git.
 - [x] After final verification, mark the Phase 3 PR ready and merge it through
   GitHub. Do not push directly to `main`.
@@ -109,6 +115,32 @@ are in [docs/SETUP.md](docs/SETUP.md).
   demo. The local path costs $0.
 
 ## Phase log
+
+### 2026-11-22 — Phase 5 implemented
+
+- Added seven GitHub Actions workflows: Terraform CI with fork-safe plan and
+  Infracost comments, environment-gated apply, scheduled drift detection,
+  GitOps manifest validation, repository security scans, Conventional Commit
+  PR title enforcement and GitHub-to-GitLab mirroring.
+- Added `.gitlab-ci.yml` with the seven required stages. Build, image scan,
+  SBOM and sign jobs use `parallel: matrix` over the three services; Trivy,
+  Syft, Cosign keyless signing, SAST, secret detection and ECR OIDC are all
+  pinned and artifact-driven.
+- Added `scripts/validate-workflows.sh`, wired into `make lint`, plus helpers
+  for GitHub/GitLab setup, checksum-verified tool installation, digest artifact
+  normalization and ADR-003 write-back.
+- Added ADR-021 (Buildah over archived Kaniko) and ADR-022 (digest signing,
+  loop prevention and offline workflow validation).
+- Validation: `bash scripts/validate-workflows.sh` passed; `actionlint 1.7.12`
+  reported no workflow errors; `bash scripts/helm-lint.sh` linted all seven
+  pinned charts; `./tools/bin/make.exe check` passed with 160 overlay contract
+  checks, 0 failures, and 15 tests.
+- Optional cloud/cost checks skip when their variables are unset, and
+  dependency review is best-effort when GitHub's dependency graph API is
+  unavailable.
+- Live GitHub and GitLab pipelines were not run by the agent. Human test steps
+  and the full secret/variable inventory are in `docs/SETUP.md` §§5–7. No AWS
+  resource was created.
 
 ### 2026-11-21 — Phase 3 implemented
 

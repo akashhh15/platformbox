@@ -1,0 +1,384 @@
+---
+# Application CI. The AWS path is optional and human-run; no static AWS key is
+# stored here. See ADR-002, ADR-003, ADR-021 and ADR-022.
+
+stages:
+  - lint
+  - test
+  - build
+  - scan
+  - sign
+  - publish
+  - deploy-gitops
+
+workflow:
+  rules:
+    # ADR-003: write-back commits must not start another build.
+    - if: '$CI_COMMIT_MESSAGE =~ /\[skip ci\]/'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH'
+      changes:
+        - apps/**/*
+        - .gitlab-ci.yml
+        - .trivyignore
+        - scripts/**/*
+    # Explicit guard if a pipeline is created for a GitOps-only commit.
+    - if: '$CI_COMMIT_BRANCH'
+      changes:
+        - gitops/**
+      when: never
+
+include:
+  - template: Security/SAST.gitlab-ci.yml
+  - template: Security/Secret-Detection.gitlab-ci.yml
+
+variables:
+  # ADR-003: the write-back commit message contains this exact marker.
+  LOOP_PREVENTION_MARKER: "[skip ci]"
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  AWS_REGION: ap-south-1
+  STORAGE_DRIVER: vfs
+  BUILDAH_FORMAT: docker
+  DOCKER_CONFIG: "$CI_PROJECT_DIR/.docker"
+  ARTIFACT_DIR: "$CI_PROJECT_DIR/artifacts"
+  REPORT_DIR: "$CI_PROJECT_DIR/reports"
+  KUSTOMIZE_VERSION: "5.8.3"
+  KUSTOMIZE_SHA256: cb9e31198d3f63b44848bd0afc4c8efc56e6cfef9c93a4a39a211940e6decd61
+  HADOLINT_VERSION: "2.15.1"
+  HADOLINT_SHA256: c7187db94eeeeca956519a6af171adc31453941a1e777961f6e680f697c8c507
+  SYFT_VERSION: "1.57.2"
+  SYFT_SHA256: ad92bd3ec1b94a3df01d4d0aec199afa9c42b72e86da436ff5f837914d32706b
+
+default:
+  interruptible: true
+  timeout: 30m
+  retry:
+    max: 1
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure
+
+# ---------------------------------------------------------------------------
+# lint
+# ---------------------------------------------------------------------------
+
+yamllint:
+  stage: lint
+  image:
+    name: python:3.12.7-slim-bookworm@sha256:60d9996b6a8a3689d36db740b49f4327be3be09a21122bd02fb8895abb38b50d
+    entrypoint: [""]
+  cache:
+    key:
+      files: [requirements-dev.txt]
+    paths: [.cache/pip]
+    policy: pull-push
+  script:
+    - python -m pip install --disable-pip-version-check yamllint==1.38.0
+    - yamllint -c .yamllint.yaml .gitlab-ci.yml apps/ gitops/ .github/workflows/
+
+hadolint:
+  stage: lint
+  image:
+    name: quay.io/buildah/stable:v1.46.1@sha256:72b49c4af6c63850200cc8809d513691d61ceb440358faff305b540c4b9fc038
+    entrypoint: [""]
+  variables:
+    HADOLINT_BIN: "$CI_PROJECT_DIR/.ci-bin/hadolint"
+  script:
+    - mkdir -p "$CI_PROJECT_DIR/.ci-bin"
+    - >
+      curl -fsSL --retry 3 --max-time 300
+      "https://github.com/hadolint/hadolint/releases/download/v${HADOLINT_VERSION}/hadolint-linux-x86_64"
+      -o "$HADOLINT_BIN"
+    - echo "$HADOLINT_SHA256  $HADOLINT_BIN" | sha256sum -c -
+    - chmod +x "$HADOLINT_BIN"
+    - >
+      "$HADOLINT_BIN" apps/api/Dockerfile
+      apps/worker/Dockerfile apps/frontend/Dockerfile
+
+# ---------------------------------------------------------------------------
+# test
+# ---------------------------------------------------------------------------
+
+ruff:
+  stage: test
+  image:
+    name: python:3.12.7-slim-bookworm@sha256:60d9996b6a8a3689d36db740b49f4327be3be09a21122bd02fb8895abb38b50d
+    entrypoint: [""]
+  cache:
+    key:
+      files: [requirements-dev.txt]
+    paths: [.cache/pip]
+    policy: pull-push
+  script:
+    - python -m pip install --disable-pip-version-check ruff==0.17.6
+    - ruff check apps
+    - ruff format --check apps
+
+pytest:
+  stage: test
+  image:
+    name: python:3.12.7-slim-bookworm@sha256:60d9996b6a8a3689d36db740b49f4327be3be09a21122bd02fb8895abb38b50d
+    entrypoint: [""]
+  cache:
+    key:
+      files:
+        - apps/api/requirements.txt
+        - apps/api/requirements-dev.txt
+        - apps/worker/requirements.txt
+        - apps/worker/requirements-dev.txt
+    paths: [.cache/pip]
+    policy: pull-push
+  script:
+    - python -m pip install --disable-pip-version-check pytest==8.4.2
+    - python -m pip install --disable-pip-version-check -r apps/api/requirements.txt -r apps/worker/requirements.txt
+    - mkdir -p "$REPORT_DIR"
+    - (cd apps/api && pytest -q --junitxml="$REPORT_DIR/api-junit.xml")
+    - (cd apps/worker && pytest -q --junitxml="$REPORT_DIR/worker-junit.xml")
+  artifacts:
+    when: always
+    paths: [reports/]
+    reports:
+      junit:
+        - reports/api-junit.xml
+        - reports/worker-junit.xml
+
+# GitLab's SAST and secret detection templates are pinned to a digest so a
+# mutable analyzer tag cannot change the pipeline without a repository change.
+semgrep-sast:
+  stage: test
+  image:
+    name: "registry.gitlab.com/security-products/semgrep:7.0.0@sha256:\
+      0d5c196b9563557d268917e6904e3021c300df90cde2b277e0c55eb80668055c"
+  variables:
+    SAST_ANALYZER_IMAGE_TAG: "7.0.0"
+  allow_failure: false
+  artifacts:
+    access: developer
+    paths: [gl-sast-report.json]
+    reports:
+      sast: gl-sast-report.json
+
+secret_detection:
+  stage: test
+  image:
+    name: "registry.gitlab.com/security-products/secrets:7.43.1@sha256:\
+      0cbd3826e1006b820af56a100f1baa98c3afe5847dde48c32589120cc83d4a5a"
+  variables:
+    SECRETS_ANALYZER_VERSION: "7.43.1"
+  allow_failure: false
+  artifacts:
+    access: developer
+    paths: [gl-secret-detection-report.json]
+    reports:
+      secret_detection: gl-secret-detection-report.json
+
+# ---------------------------------------------------------------------------
+# build
+# ---------------------------------------------------------------------------
+
+# One matrix job builds each service. Buildah needs no privileged runner and no
+# Docker socket. The digest artifact is normalized by scripts/image-artifacts.sh.
+build:
+  stage: build
+  image:
+    name: quay.io/buildah/stable:v1.46.1@sha256:72b49c4af6c63850200cc8809d513691d61ceb440358faff305b540c4b9fc038
+    entrypoint: [""]
+  id_tokens:
+    AWS_OIDC_TOKEN:
+      aud: sts.amazonaws.com
+  parallel:
+    matrix:
+      - SERVICE: [api, worker, frontend]
+  before_script:
+    - source scripts/gitlab-aws-oidc.sh
+  script:
+    - mkdir -p "$ARTIFACT_DIR" "$DOCKER_CONFIG"
+    - export REGISTRY_AUTH_FILE="$DOCKER_CONFIG/config.json"
+    - >
+      aws ecr get-login-password --region "$AWS_REGION" |
+      buildah login --username AWS --password-stdin "$ECR_REGISTRY"
+    - IMAGE="$ECR_REGISTRY/$SERVICE:$CI_COMMIT_SHORT_SHA-$SERVICE"
+    - buildah bud --layers -f "apps/$SERVICE/Dockerfile" -t "$IMAGE" "apps/$SERVICE"
+    - buildah push --digestfile "$ARTIFACT_DIR/$SERVICE.digest" "$IMAGE" "$IMAGE"
+    - buildah push "$IMAGE" "docker-archive:$ARTIFACT_DIR/$SERVICE.tar"
+    - bash scripts/image-artifacts.sh write "$SERVICE" "$IMAGE" "$ECR_REGISTRY"
+  artifacts:
+    paths:
+      - artifacts/$SERVICE.digest
+      - artifacts/$SERVICE.image
+      - artifacts/$SERVICE.tar
+      - artifacts/registry.txt
+
+# ---------------------------------------------------------------------------
+# scan
+# ---------------------------------------------------------------------------
+
+trivy-fs:
+  stage: scan
+  image:
+    name: aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb
+    entrypoint: [""]
+  script:
+    - mkdir -p "$REPORT_DIR"
+    - >
+      trivy fs --exit-code 1 --severity HIGH,CRITICAL
+      --ignorefile .trivyignore --format json
+      --output "$REPORT_DIR/trivy-fs.json" .
+  artifacts:
+    when: always
+    paths: [reports/trivy-fs.json]
+
+trivy-image:
+  stage: scan
+  image:
+    name: aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb
+    entrypoint: [""]
+  parallel:
+    matrix:
+      - SERVICE: [api, worker, frontend]
+  script:
+    - mkdir -p "$REPORT_DIR"
+    - >
+      trivy image --input "$ARTIFACT_DIR/$SERVICE.tar"
+      --exit-code 1 --severity HIGH,CRITICAL --ignorefile .trivyignore
+      --format json --output "$REPORT_DIR/$SERVICE-image.json"
+  artifacts:
+    when: always
+    paths: [reports/$SERVICE-image.json]
+
+sbom:
+  stage: scan
+  image:
+    name: quay.io/buildah/stable:v1.46.1@sha256:72b49c4af6c63850200cc8809d513691d61ceb440358faff305b540c4b9fc038
+    entrypoint: [""]
+  parallel:
+    matrix:
+      - SERVICE: [api, worker, frontend]
+  variables:
+    SYFT_BIN: "$CI_PROJECT_DIR/.ci-bin/syft"
+  script:
+    - mkdir -p "$CI_PROJECT_DIR/.ci-bin" "$REPORT_DIR"
+    - >
+      curl -fsSL --retry 3 --max-time 300
+      "https://github.com/anchore/syft/releases/download/v${SYFT_VERSION}/syft_${SYFT_VERSION}_linux_amd64.tar.gz"
+      -o "$CI_PROJECT_DIR/.ci-bin/syft.tar.gz"
+    - echo "$SYFT_SHA256  $CI_PROJECT_DIR/.ci-bin/syft.tar.gz" | sha256sum -c -
+    - tar -xzf "$CI_PROJECT_DIR/.ci-bin/syft.tar.gz" -C "$CI_PROJECT_DIR/.ci-bin" syft
+    - chmod +x "$SYFT_BIN"
+    - >
+      "$SYFT_BIN" scan "docker-archive:$ARTIFACT_DIR/$SERVICE.tar"
+      -o "cyclonedx-json=$ARTIFACT_DIR/$SERVICE.cyclonedx.json"
+  artifacts:
+    paths: [artifacts/$SERVICE.cyclonedx.json]
+
+# ---------------------------------------------------------------------------
+# sign
+# ---------------------------------------------------------------------------
+
+# Cosign signs the digest emitted by build, not the mutable tag (ADR-022).
+sign:
+  stage: sign
+  image:
+    name: quay.io/buildah/stable:v1.46.1@sha256:72b49c4af6c63850200cc8809d513691d61ceb440358faff305b540c4b9fc038
+    entrypoint: [""]
+  id_tokens:
+    SIGSTORE_ID_TOKEN:
+      aud: sigstore
+    AWS_OIDC_TOKEN:
+      aud: sts.amazonaws.com
+  parallel:
+    matrix:
+      - SERVICE: [api, worker, frontend]
+  before_script:
+    - source scripts/gitlab-aws-oidc.sh
+    - export COSIGN_BIN="$(bash scripts/install-cosign.sh)"
+    - bash scripts/image-artifacts.sh verify "$SERVICE" "$ECR_REGISTRY"
+    - export REGISTRY_AUTH_FILE="$DOCKER_CONFIG/config.json"
+  script:
+    - mkdir -p "$DOCKER_CONFIG" "$REPORT_DIR"
+    - >
+      aws ecr get-login-password --region "$AWS_REGION" |
+      buildah login --username AWS --password-stdin "$ECR_REGISTRY"
+    - IMAGE="$(tr -d '[:space:]' < "$ARTIFACT_DIR/$SERVICE.image")"
+    - >
+      "$COSIGN_BIN" sign --yes --identity-token "$SIGSTORE_ID_TOKEN" "$IMAGE"
+    - >
+      "$COSIGN_BIN" attest --yes --type cyclonedx
+      --predicate "$ARTIFACT_DIR/$SERVICE.cyclonedx.json"
+      --identity-token "$SIGSTORE_ID_TOKEN" "$IMAGE"
+    - echo "$IMAGE" > "$REPORT_DIR/$SERVICE-signed.txt"
+  artifacts:
+    paths: [reports/$SERVICE-signed.txt]
+
+# ---------------------------------------------------------------------------
+# publish
+# ---------------------------------------------------------------------------
+
+publish-release-metadata:
+  stage: publish
+  image:
+    name: quay.io/buildah/stable:v1.46.1@sha256:72b49c4af6c63850200cc8809d513691d61ceb440358faff305b540c4b9fc038
+    entrypoint: [""]
+  script:
+    - mkdir -p "$REPORT_DIR"
+    - >
+      printf '{"commit":"%s","services":{' "$CI_COMMIT_SHA" >
+      "$REPORT_DIR/release.json"
+    - >
+      for s in api worker frontend; do
+        printf '"%s":"%s",' "$s" "$(tr -d '[:space:]' < "$ARTIFACT_DIR/$s.image")"
+      done >> "$REPORT_DIR/release.json"
+    - sed -i 's/,$/}}/' "$REPORT_DIR/release.json"
+    - cat "$REPORT_DIR/release.json"
+  artifacts:
+    paths: [reports/release.json]
+
+# ---------------------------------------------------------------------------
+# deploy-gitops
+# ---------------------------------------------------------------------------
+
+deploy-gitops-dev:
+  stage: deploy-gitops
+  image:
+    name: quay.io/buildah/stable:v1.46.1@sha256:72b49c4af6c63850200cc8809d513691d61ceb440358faff305b540c4b9fc038
+    entrypoint: [""]
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main" || $CI_PIPELINE_SOURCE == "web"'
+      when: manual
+      allow_failure: true
+    - when: manual
+      allow_failure: true
+  script:
+    - bash scripts/gitops-write-back.sh
+
+pipeline-summary:
+  stage: deploy-gitops
+  image:
+    name: alpine/git:v2.52.0@sha256:4a0e72d49596a1f5d3701aeedafdadc5c0da4062be4657c7bdc4017387f591cc
+    entrypoint: [""]
+  when: always
+  script:
+    - mkdir -p "$REPORT_DIR"
+    - |
+      {
+        echo "# Pipeline summary"
+        echo
+        echo "- Commit: \`$CI_COMMIT_SHORT_SHA\`"
+        echo "- Stage: \`$CI_JOB_STAGE\`"
+        echo "- Tests: $(find "$REPORT_DIR" -maxdepth 1 -name '*-junit.xml' | wc -l) JUnit reports"
+        echo "- Scans: $(find "$REPORT_DIR" -maxdepth 1 -name '*.json' | wc -l) Trivy reports"
+        for svc in api worker frontend; do
+          if [ -s "$ARTIFACT_DIR/$svc.image" ]; then
+            image="$(tr -d '[:space:]' < "$ARTIFACT_DIR/$svc.image")"
+          else
+            image="unavailable"
+          fi
+          echo "- $svc: \`$image\`"
+        done
+      } > "$REPORT_DIR/pipeline-summary.md"
+    - cat "$REPORT_DIR/pipeline-summary.md"
+  artifacts:
+    when: always
+    paths: [reports/pipeline-summary.md]

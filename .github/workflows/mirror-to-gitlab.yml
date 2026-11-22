@@ -1,0 +1,52 @@
+---
+name: mirror-to-gitlab
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - gitops/**
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: mirror-to-gitlab
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    name: push main to GitLab
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate configuration
+        shell: bash
+        env:
+          GITLAB_PROJECT_PATH: ${{ vars.GITLAB_PROJECT_PATH }}
+          GITLAB_MIRROR_TOKEN: ${{ secrets.GITLAB_MIRROR_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "$GITLAB_PROJECT_PATH" ] || [ -z "$GITLAB_MIRROR_TOKEN" ]; then
+            echo '::error::Set GITLAB_PROJECT_PATH and GITLAB_MIRROR_TOKEN before enabling the mirror.'
+            exit 1
+          fi
+
+      - name: Push main
+        shell: bash
+        env:
+          GITLAB_PROJECT_PATH: ${{ vars.GITLAB_PROJECT_PATH }}
+          GITLAB_MIRROR_TOKEN: ${{ secrets.GITLAB_MIRROR_TOKEN }}
+        run: |
+          set -euo pipefail
+          export GIT_TERMINAL_PROMPT=0
+          git -c http.extraheader="AUTHORIZATION: bearer ${GITLAB_MIRROR_TOKEN}" \
+            push "https://gitlab.com/${GITLAB_PROJECT_PATH}.git" \
+            "+HEAD:refs/heads/main"

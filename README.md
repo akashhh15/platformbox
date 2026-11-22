@@ -5,8 +5,9 @@ progressive delivery, policy-as-code, observability, SLOs, and a supply chain
 that signs what it ships. The AWS EKS production path is written and validated
 with Terraform, but it is optional and is never applied by the agent.
 
-> **Status: Phase 4 — application delivery.** The local platform and its
-> application manifests run on `kind`; CI/CD and later phases are still planned.
+> **Status: Phase 5 — CI/CD.** GitHub Actions and GitLab CI are written and
+> offline-validated; live pipelines require human-supplied tokens and OIDC
+> roles. The local platform and its application manifests run on `kind`.
 > See [PROGRESS.md](PROGRESS.md) for the phase plan and current state, and
 > [docs/architecture.md](docs/architecture.md) for the delivery model.
 
@@ -33,7 +34,7 @@ flowchart LR
   GH -->|pull request checks| GHA[GitHub Actions]
   GH -->|mirror main| GL[GitLab project]
   GL --> GLCI[GitLab CI]
-  GLCI -->|build, scan, SBOM, sign| REG[GHCR or GitLab registry]
+  GLCI -->|build, scan, SBOM, sign| REG[ECR - human-run AWS path]
   GLCI -->|image digest commit| GH
   GH -->|GitOps sync| ARGO[Argo CD on kind]
   ARGO --> APPS[api / worker / frontend]
@@ -45,9 +46,12 @@ flowchart LR
   GH -.->|optional, human-run| AWS[Terraform to AWS EKS]
 ```
 
-The default path is the solid line: a local `kind` cluster with ingress-nginx,
-in-cluster PostgreSQL, and images from GHCR or the GitLab Container Registry.
-The dashed AWS path is design-validated only. The trade-off is recorded in
+The default runtime is the solid line: a local `kind` cluster with
+ingress-nginx and in-cluster PostgreSQL, using images built by
+`make local-smoke`. The GitLab pipeline is the production delivery path: it
+builds, scans and signs images and pushes them to ECR through GitLab OIDC, but
+it needs human-supplied variables and roles before it can run. The EKS and
+Terraform apply path is design-validated only. The trade-off is recorded in
 [ADR-000](docs/adr/ADR-000-local-first-zero-cost.md) and
 [ADR-004](docs/adr/ADR-004-local-substitutes.md).
 
@@ -58,7 +62,8 @@ The dashed AWS path is design-validated only. The trade-off is recorded in
    checks.
 2. Merge to `main`. The repository is mirrored to GitLab.
 3. GitLab CI tests, builds, scans, generates an SBOM, signs the image with
-   Cosign keyless, publishes it, and commits the image digest under `gitops/`.
+   Cosign keyless, pushes it to ECR through OIDC, and commits the image digest
+   under `gitops/`.
 4. Argo CD syncs the change to the local kind cluster.
 5. Argo Rollouts performs a canary release with Prometheus analysis and
    automatic rollback.
@@ -74,7 +79,7 @@ The dashed AWS path is design-validated only. The trade-off is recorded in
 |---|---|---|
 | Kubernetes | `kind` | Amazon EKS |
 | Ingress | ingress-nginx | AWS Load Balancer Controller |
-| Registry | GHCR or GitLab registry | Amazon ECR |
+| Registry | Local images loaded into `kind` | Amazon ECR through GitLab OIDC |
 | Database | In-cluster PostgreSQL | Amazon RDS for PostgreSQL |
 | Node scaling | HPA on a single kind node | Managed node group + Karpenter |
 | Secrets | Kubernetes Secret or External Secrets fake store | AWS Secrets Manager + External Secrets Operator |

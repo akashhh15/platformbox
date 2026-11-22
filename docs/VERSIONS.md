@@ -40,7 +40,7 @@ on 2026-11-21; the Phase 4 additions below were verified on 2026-11-22.
 | yq | 4.54.3 | Pinned | `mikefarah/yq` GitHub release |
 | shellcheck | 0.11.0 | Pinned | `koalaman/shellcheck` GitHub release |
 | Docker CLI | 29.9.3 | Verified client version | Local Docker Desktop installation |
-| AWS CLI | TBD | Optional AWS path | Verify before use |
+| AWS CLI | 2.42.1 | Pinned | `awscli.amazonaws.com`, SHA-256 recorded in the Phase 5 CI pins |
 
 ## Pre-commit hooks
 
@@ -122,6 +122,54 @@ Kyverno chart 3.3.7 was rejected: it ships Kyverno 1.13.4, which cannot execute
 the CEL `ValidatingPolicy` resources used here. 3.10.0 ships 1.20.0, matching
 the pinned Kyverno CLI. See [ADR-009](adr/ADR-009-cel-based-kyverno-policies.md).
 
+## Phase 5 CI pins
+
+All entries below were verified on 2026-11-22. Action tags were resolved to
+commits with `git ls-remote --tags`; container digests were read from the
+registry with `docker buildx imagetools inspect`; binary digests came from the
+upstream release API or the release's checksum file. Workflows must use the
+SHA form, never the tag.
+
+| Action | Tag | Commit SHA |
+|---|---|---|
+| `actions/checkout` | v7 | `3d3c42e5aac5ba805825da76410c181273ba90b1` |
+| `actions/setup-python` | v7 | `6d4fd22b20465ccc0f7354476588e8df7c9ca0e0` |
+| `actions/upload-artifact` | v7 | `cf430e030ddbb5b0abf93d22962f4752f3646cd9` |
+| `actions/github-script` | v9 | `3a2844b7e9c422d3c10d287c895573f7108da1b3` |
+| `actions/dependency-review-action` | v5.0.1 | `bbc44d14a204704ccc493733616cd1e93a0321ec` |
+| `hashicorp/setup-terraform` | v4 | `dfe3c3f87815947d99a8997f908cb6525fc44e9e` |
+| `terraform-linters/setup-tflint` | v6 | `6ffdbaa3be476b3431f7275c26966ef32ff60337` |
+| `aquasecurity/trivy-action` | v0.36.0 | `ed142fd0673e97e23eac54620cfb913e5ce36c25` |
+| `aws-actions/configure-aws-credentials` | v6 | `e1253824e5c10ff9df46874f81ed3ec929e19cfd` |
+| `github/codeql-action` | v4 | `1bd86f2fdb4b86187fa4059f16f31a3202acc9ea` |
+| `gitleaks/gitleaks-action` | v3 | `e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e` |
+| `infracost/actions/diff` | v5 | `a5783eb98adc93aa7a0049fce0abb06fdd30770a` |
+| `azure/setup-helm` | v5 | `2f5e7bc67f1f9972ab16657bb795f36d8f04de0e` |
+
+| Container image | Tag | Digest | Used by |
+|---|---|---|---|
+| `quay.io/buildah/stable` | `v1.46.1` | `sha256:72b49c4af6c63850200cc8809d513691d61ceb440358faff305b540c4b9fc038` | GitLab build, SBOM, sign and publish jobs |
+| `python` | `3.12.7-slim-bookworm` | `sha256:60d9996b6a8a3689d36db740b49f4327be3be09a21122bd02fb8895abb38b50d` | GitLab lint and test jobs |
+| `aquasec/trivy` | `0.76.2` | `sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb` | GitLab Trivy jobs |
+| `alpine/git` | `v2.52.0` | `sha256:4a0e72d49596a1f5d3701aeedafdadc5c0da4062be4657c7bdc4017387f591cc` | GitLab pipeline summary job |
+| `registry.gitlab.com/security-products/semgrep` | `7.0.0` | `sha256:0d5c196b9563557d268917e6904e3021c300df90cde2b277e0c55eb80668055c` | GitLab SAST |
+| `registry.gitlab.com/security-products/secrets` | `7.43.1` | `sha256:0cbd3826e1006b820af56a100f1baa98c3afe5847dde48c32589120cc83d4a5a` | GitLab secret detection |
+| `ghcr.io/infracost/ci` | `2.1.5` | `sha256:e7ddb5c9026624456b47ec4208da00ef942ee390b29cb331d648b8c0d8731ee5` | Infracost action `version` input |
+
+| Binary downloaded in CI | Version | SHA-256 |
+|---|---|---|
+| `actionlint_1.7.12_linux_amd64.tar.gz` | 1.7.12 | `8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8` |
+| `kustomize_v5.8.3_linux_amd64.tar.gz` | 5.8.3 | `cb9e31198d3f63b44848bd0afc4c8efc56e6cfef9c93a4a39a211940e6decd61` |
+| `kubeconform-linux-amd64.tar.gz` | 0.8.0 | `9bc2bffbf71f261128533edaf912153948b7ff238f9a531ae6d34466ec287883` |
+| `kyverno-cli_v1.20.0_linux_x86_64.tar.gz` | 1.20.0 | `06b8f3ca7b5626473be8fb4d343ad54ab84e317142766f72420e7d44b80942e2` |
+| `awscli-exe-linux-x86_64-2.42.1.zip` | 2.42.1 | `ff2631c32c5db291b099600f404bc493454ec66c125ff4604625da90480c1f47` |
+| `cosign-linux-amd64` | 3.1.4 | `424e2c97d0b45fd7a6b608a87f090f35633f4c23ece5f092d48bba11aaf4bbfa` |
+| `hadolint-linux-x86_64` | 2.15.1 | `c7187db94eeeeca956519a6af171adc31453941a1e777961f6e680f697c8c507` |
+| `syft_1.57.2_linux_amd64.tar.gz` | 1.57.2 | `ad92bd3ec1b94a3df01d4d0aec199afa9c42b72e86da436ff5f837914d32706b` |
+
+Kaniko was rejected because its upstream repository is archived; see
+[ADR-021](adr/ADR-021-buildah-over-kaniko.md).
+
 ## Platform versions to pin in later phases
 
 These are intentionally unresolved until the phase that needs them. Resolve
@@ -132,6 +180,6 @@ them against current official documentation, then add the exact version here.
 | Terraform providers (`aws`, `kubernetes`, `helm`, `random`) | 1 | Resolved in `.terraform.lock.hcl` |
 | EKS Kubernetes version | 1 | Resolved in `infra/` |
 | Application base images | 2 | Pinned by tag and digest in the Dockerfiles |
-| GitHub Actions | 5 | Pin every action by commit SHA |
-| GitLab CI images | 5 | Pin by tag and digest |
+| GitHub Actions | 5 | Resolved in the Phase 5 CI pins table above |
+| GitLab CI images | 5 | Resolved in the Phase 5 CI pins table above |
 | k6, Chaos Mesh | 9 | Extension phase |

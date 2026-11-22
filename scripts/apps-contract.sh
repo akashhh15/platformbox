@@ -112,14 +112,23 @@ for env in dev staging prod local; do
   check "$env secret store name" "$(yq ea '[select(.kind == "ExternalSecret") | .spec.secretStoreRef.name == "'"${STORE_NAME[$env]}"'"] | all' "$render")" "true"
   check "$env ingress class" "$(yq ea '[select(.kind == "Ingress") | .spec.ingressClassName == "'"${INGRESS_CLASS[$env]}"'"] | all' "$render")" "true"
   check "$env chaos toggle" "$(yq ea 'select(.kind == "Rollout") | .spec.template.spec.containers[0].env[] | select(.name == "FAULT_INJECTION_ENABLED") | .value' "$render")" "${CHAOS[$env]}"
+  : >"$WORK/$env.image-prefixes"
   for svc in api worker frontend; do
+    image="$(yq ea "select(.kind == \"Deployment\" or .kind == \"Rollout\") | select(.metadata.name == \"$svc\") | .spec.template.spec.containers[0].image" "$render")"
     if [[ "$env" == "local" ]]; then
-      expected_image="${IMAGE_PREFIX[$env]}-$svc:${IMAGE_TAG[$env]}"
-    else
-      expected_image="${IMAGE_PREFIX[$env]}/$svc:${IMAGE_TAG[$env]}"
+      check "$env $svc image" "$image" "${IMAGE_PREFIX[$env]}-$svc:${IMAGE_TAG[$env]}"
+      continue
     fi
-    check "$env $svc image" "$(yq ea "select(.kind == \"Deployment\" or .kind == \"Rollout\") | select(.metadata.name == \"$svc\") | .spec.template.spec.containers[0].image" "$render")" "$expected_image"
+    # ADR-003 write-back replaces newTag with an ECR registry and digest. Accept
+    # either the committed placeholder tag or a pinned digest, never latest.
+    pattern="^[^[:space:]]+/$svc:(dev|staging|prod)\$|^[^[:space:]]+/$svc@sha256:[0-9a-f]{64}\$"
+    check "$env $svc image format" "$(printf '%s' "$image" | grep -Ec "$pattern")" "1"
+    printf '%s\n' "$image" | sed -E 's#^(.*)/(api|worker|frontend)(:.*|@.*)$#\1#' >>"$WORK/$env.image-prefixes"
   done
+  if [[ "$env" != "local" ]]; then
+    check "$env image prefix parity" "$(sort -u "$WORK/$env.image-prefixes" | wc -l | tr -d '[:space:]')" "1"
+    check "$env image prefix present" "$(grep -cv '^$' "$WORK/$env.image-prefixes")" "3"
+  fi
   check "$env namespace" "$(yq ea '[select(.kind != null and .kind != "Namespace") | .metadata.namespace == "'"${NAMESPACE[$env]}"'"] | all' "$render")" "true"
 
   if [[ "$env" != "local" ]]; then
