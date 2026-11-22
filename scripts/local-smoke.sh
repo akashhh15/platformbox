@@ -55,15 +55,30 @@ kubectl rollout status deployment/redis -n app-data --timeout=300s
 
 echo "==> Applying the local application overlay"
 kubectl apply -k gitops/apps/local
-for kind_name in "deployment/worker" "deployment/frontend"; do
-  kubectl rollout status "$kind_name" -n app-local --timeout=300s
-done
-kubectl wait --for=condition=Ready rollout/api -n app-local --timeout=300s >/dev/null
+
+echo "==> Refreshing ExternalSecrets from the local fake store"
+# Safe on a fresh cluster and needed on a rerun after a fake-store value change.
+SYNC_TOKEN="$(date +%s)"
+kubectl annotate externalsecret api-credentials worker-credentials \
+  -n app-local "force-sync=$SYNC_TOKEN" --overwrite >/dev/null
 
 echo "==> Waiting for ExternalSecrets to sync"
 kubectl wait --for=jsonpath='{.status.conditions[?(@.type=="Ready")].status}'=True \
   externalsecret/api-credentials externalsecret/worker-credentials \
   -n app-local --timeout=180s >/dev/null
+
+echo "==> Restarting workloads to consume refreshed secrets"
+kubectl rollout restart deployment/worker deployment/frontend -n app-local >/dev/null
+# kubectl rollout restart does not know the Rollout CRD; patching the pod
+# template annotation is the controller-agnostic way to start a new revision.
+kubectl patch rollout api -n app-local --type merge \
+  -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"platformbox.io/restartedAt\":\"$SYNC_TOKEN\"}}}}}" >/dev/null
+
+echo "==> Waiting for application workloads"
+for kind_name in "deployment/worker" "deployment/frontend"; do
+  kubectl rollout status "$kind_name" -n app-local --timeout=300s
+done
+kubectl wait --for=condition=Healthy rollout/api -n app-local --timeout=300s >/dev/null
 
 echo "==> Smoke-checking HTTP endpoints"
 kubectl port-forward svc/api 18000:8000 -n app-local >/dev/null 2>&1 &

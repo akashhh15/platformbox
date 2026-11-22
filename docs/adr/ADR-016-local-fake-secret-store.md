@@ -12,9 +12,10 @@ from AWS Secrets Manager (ADR-004). A local smoke test still needs to exercise
 the ExternalSecret reconciliation path, not just pre-create a Secret, or it
 would prove nothing about the delivery manifests.
 
-The values needed locally are the non-sensitive defaults already committed in
-`apps/docker-compose.yml`: user `app`, password `app`, database `app`, and
-`redis://redis:6379/0`. They are not real credentials.
+The credentials needed locally are the non-sensitive defaults already committed
+in `apps/docker-compose.yml`: user `app`, password `app` and database `app`.
+They are not real credentials. Hostnames use fully qualified in-cluster names
+because PostgreSQL and Redis run in the separate `app-data` namespace.
 
 ## Decision
 
