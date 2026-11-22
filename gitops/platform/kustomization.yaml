@@ -3,6 +3,7 @@ kind: Kustomization
 resources:
   - ingress-nginx.yaml
   - external-secrets.yaml
+  - aws-cluster-secret-store.yaml
   - kyverno.yaml
   - kyverno-policies-app.yaml
   - monitoring.yaml
