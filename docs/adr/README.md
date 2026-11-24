@@ -30,5 +30,6 @@ one with a new ADR instead of rewriting history.
 | [ADR-020](ADR-020-offline-contract-evidence.md) | Offline contract evidence for the AWS path | Accepted |
 | [ADR-021](ADR-021-buildah-over-kaniko.md) | Buildah over Kaniko and Docker daemon builds in GitLab CI | Accepted |
 | [ADR-022](ADR-022-ci-trust-boundaries-and-offline-validation.md) | CI trust boundaries, digest-based signing and offline workflow validation | Accepted |
+| [ADR-023](ADR-023-policy-scope-and-deferred-signature-admission.md) | Application-only hardening scope and deferred signature admission | Accepted |
 
 Use [template.md](template.md) for a new ADR.

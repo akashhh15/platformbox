@@ -151,6 +151,8 @@ No measurements are claimed yet. The following will be filled with real data:
 - [docs/VERSIONS.md](docs/VERSIONS.md) — pinned tools, sources and verification
   dates.
 - [docs/adr/](docs/adr/) — architecture decisions, starting with ADR-000.
+- [docs/threat-model.md](docs/threat-model.md) — assets, trust boundaries,
+  STRIDE controls and residual risks.
 - [docs/PROMPTS.md](docs/PROMPTS.md) — the phased build prompts used for this
   project.
 

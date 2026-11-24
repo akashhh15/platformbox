@@ -99,7 +99,9 @@ runs `terraform test` with mock providers and `scripts/apps-contract.sh`, which
 compare the local overlay with the AWS overlays and assert that only the
 documented substitutions differ (ADR-020). `make lint` includes
 `workflows-validate`, which runs `actionlint` and the offline GitLab CI
-contract checks. Targets for later phases print a clear "not implemented until
+contract checks. `make test` includes `policy-test`, which runs `kyverno test`
+against compliant, violating and out-of-scope pods for all seven admission
+policies. Targets for later phases print a clear "not implemented until
 Phase N" message and exit 0.
 
 ## 4. Local quickstart
