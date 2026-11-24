@@ -19,7 +19,7 @@ TOOLS_BIN := tools/bin
 export PATH := $(CURDIR)/$(VENV_BIN):$(CURDIR)/$(TOOLS_BIN):$(PATH)
 
 .PHONY: help tools tools-check pre-commit-install fmt lint validate scan test check \
-        terraform-test contract workflows-validate local-up local-down up down demo \
+        terraform-test contract workflows-validate policy-test local-up local-down up down demo \
         gitops-validate local-smoke aws-plan aws-apply clean
 
 ##@ General
@@ -74,7 +74,7 @@ scan: ## Run secret and IaC security scans
 	@echo "==> IaC scan (checkov)"
 	@bash scripts/checkov.sh -d . --compact --quiet
 
-test: ## Run unit and integration tests
+test: policy-test ## Run unit and integration tests
 	@if [ -d apps/api/tests ]; then (cd apps/api && PYTHONPATH=src pytest -q); fi
 	@if [ -d apps/worker/tests ]; then (cd apps/worker && PYTHONPATH=src pytest -q); fi
 	@if [ ! -d apps/api/tests ] && [ ! -d apps/worker/tests ]; then \
@@ -110,6 +110,9 @@ demo: ## Run the five-minute local demo
 
 gitops-validate: ## Render and validate every Kustomize overlay and Helm chart
 	@bash scripts/gitops-validate.sh
+
+policy-test: ## Run Kyverno unit tests against compliant and violating pods
+	@bash scripts/policy-test.sh
 
 local-smoke: ## Deploy the app on kind with local Postgres, Redis and fake secrets
 	@bash scripts/local-smoke.sh
