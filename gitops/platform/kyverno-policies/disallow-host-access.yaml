@@ -1,0 +1,36 @@
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: disallow-host-access
+  annotations:
+    policies.kyverno.io/title: Disallow host namespaces, hostPath and privileged containers
+    policies.kyverno.io/category: Pod Security
+    policies.kyverno.io/severity: high
+spec:
+  validationActions: ["Deny"]
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods"]
+  matchConditions:
+    - name: application-namespace
+      expression: "object.metadata.?namespace.orValue('') in ['app-dev', 'app-staging', 'app-prod']"
+  validations:
+    - expression: >-
+        object.spec.?hostNetwork.orValue(false) == false &&
+        object.spec.?hostPID.orValue(false) == false &&
+        object.spec.?hostIPC.orValue(false) == false
+      message: "Pods must not use the host network, PID or IPC namespaces."
+    - expression: >-
+        object.spec.?volumes.orValue([]).all(v, !has(v.hostPath))
+      message: "hostPath volumes are not allowed."
+    - expression: >-
+        object.spec.containers.all(c,
+        c.?securityContext.?privileged.orValue(false) == false)
+      message: "Containers must not be privileged."
+    - expression: >-
+        object.spec.?initContainers.orValue([]).all(c,
+        c.?securityContext.?privileged.orValue(false) == false)
+      message: "Init containers must not be privileged."

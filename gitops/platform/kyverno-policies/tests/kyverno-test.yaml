@@ -1,0 +1,141 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: platformbox-policy-tests
+policies:
+  - ../require-labels.yaml
+  - ../disallow-latest-tag.yaml
+  - ../require-resource-limits.yaml
+  - ../require-non-root.yaml
+  - ../require-probes.yaml
+  - ../require-container-hardening.yaml
+  - ../disallow-host-access.yaml
+resources:
+  - resources.yaml
+results:
+  - isValidatingPolicy: true
+    policy: require-standard-labels
+    kind: Pod
+    resources:
+      - app-dev/good-pod
+      - app-dev/bad-hardening-pod
+      - app-dev/bad-host-pod
+      - app-data/data-pod
+    result: pass
+  - isValidatingPolicy: true
+    policy: require-standard-labels
+    kind: Pod
+    resources:
+      - kube-system/platform-pod
+    result: skip
+
+  - isValidatingPolicy: true
+    policy: disallow-latest-tag
+    kind: Pod
+    resources:
+      - app-dev/good-pod
+      - app-dev/bad-hardening-pod
+      - app-dev/bad-host-pod
+      - app-data/data-pod
+    result: pass
+  - isValidatingPolicy: true
+    policy: disallow-latest-tag
+    kind: Pod
+    resources:
+      - kube-system/platform-pod
+    result: skip
+
+  - isValidatingPolicy: true
+    policy: require-resource-limits
+    kind: Pod
+    resources:
+      - app-dev/good-pod
+      - app-dev/bad-hardening-pod
+      - app-dev/bad-host-pod
+      - app-data/data-pod
+    result: pass
+  - isValidatingPolicy: true
+    policy: require-resource-limits
+    kind: Pod
+    resources:
+      - kube-system/platform-pod
+    result: skip
+
+  - isValidatingPolicy: true
+    policy: require-non-root
+    kind: Pod
+    resources:
+      - app-dev/good-pod
+      - app-dev/bad-hardening-pod
+      - app-dev/bad-host-pod
+      - app-data/data-pod
+    result: pass
+  - isValidatingPolicy: true
+    policy: require-non-root
+    kind: Pod
+    resources:
+      - kube-system/platform-pod
+    result: skip
+
+  - isValidatingPolicy: true
+    policy: require-probes
+    kind: Pod
+    resources:
+      - app-dev/good-pod
+      - app-dev/bad-hardening-pod
+      - app-dev/bad-host-pod
+      - app-data/data-pod
+    result: pass
+  - isValidatingPolicy: true
+    policy: require-probes
+    kind: Pod
+    resources:
+      - kube-system/platform-pod
+    result: skip
+
+  - isValidatingPolicy: true
+    policy: require-container-hardening
+    kind: Pod
+    resources:
+      - app-dev/good-pod
+    result: pass
+  - isValidatingPolicy: true
+    policy: require-container-hardening
+    kind: Pod
+    resources:
+      - app-dev/bad-hardening-pod
+    result: fail
+  - isValidatingPolicy: true
+    policy: require-container-hardening
+    kind: Pod
+    resources:
+      - app-dev/bad-host-pod
+    result: pass
+  - isValidatingPolicy: true
+    policy: require-container-hardening
+    kind: Pod
+    resources:
+      - app-data/data-pod
+      - kube-system/platform-pod
+    result: skip
+
+  - isValidatingPolicy: true
+    policy: disallow-host-access
+    kind: Pod
+    resources:
+      - app-dev/good-pod
+      - app-dev/bad-hardening-pod
+    result: pass
+  - isValidatingPolicy: true
+    policy: disallow-host-access
+    kind: Pod
+    resources:
+      - app-dev/bad-host-pod
+    result: fail
+  - isValidatingPolicy: true
+    policy: disallow-host-access
+    kind: Pod
+    resources:
+      - app-data/data-pod
+      - kube-system/platform-pod
+    result: skip

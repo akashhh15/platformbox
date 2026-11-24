@@ -56,6 +56,21 @@ for entry in "${OVERLAYS[@]}"; do
 done
 
 echo "==> Kyverno CLI: rendered pod specs"
+# The CLI treats a non-policy YAML file in a directory as a load hint and can
+# silently apply zero policies when kustomization.yaml is present. Give it a
+# clean directory containing only the ValidatingPolicy manifests.
+POLICY_DIR="$WORK/policies"
+mkdir -p "$POLICY_DIR"
+for policy in gitops/platform/kyverno-policies/*.yaml; do
+  [[ "$(basename "$policy")" == "kustomization.yaml" ]] && continue
+  cp "$policy" "$POLICY_DIR/"
+done
+POLICY_COUNT="$(find "$POLICY_DIR" -type f -name '*.yaml' | wc -l | tr -d ' ')"
+if [[ "$POLICY_COUNT" -eq 0 ]]; then
+  echo "ERROR: no Kyverno policies found to apply." >&2
+  exit 1
+fi
+
 render_pods() {
   local render="$1"
   local namespace="$2"
@@ -63,25 +78,29 @@ render_pods() {
   NS="$namespace" yq e 'select(.kind == "Deployment" or .kind == "Rollout" or .kind == "StatefulSet") | . as $item | {"apiVersion": "v1", "kind": "Pod", "metadata": ($item.spec.template.metadata | .name = $item.metadata.name | .namespace = strenv(NS)), "spec": $item.spec.template.spec}' "$render" >"$out"
 }
 
+check_pods() {
+  local name="$1"
+  local pods="$2"
+  local log="$WORK/$name-kyverno.log"
+  printf '    %-12s %s pods  ' "$name" "$(grep -c '^kind: Pod' "$pods" || true)"
+  kyverno apply "$POLICY_DIR" -r "$pods" >"$log" 2>&1
+  if ! grep -q "Applying $POLICY_COUNT policy rule(s)" "$log"; then
+    echo "ERROR: Kyverno did not load all $POLICY_COUNT policies for $name." >&2
+    cat "$log" >&2
+    exit 1
+  fi
+  tail -n 1 "$log"
+}
+
 for env in dev staging prod; do
   render_pods "$WORK/$env.yaml" "app-$env" "$WORK/$env-pods.yaml"
-  pod_count="$(grep -c '^kind: Pod' "$WORK/$env-pods.yaml" || true)"
-  printf '    %-12s %s pods  ' "$env" "$pod_count"
-  kyverno apply gitops/platform/kyverno-policies/ -r "$WORK/$env-pods.yaml" \
-    >"$WORK/$env-kyverno.log" 2>&1
-  tail -n 1 "$WORK/$env-kyverno.log"
+  check_pods "$env" "$WORK/$env-pods.yaml"
 done
 
 render_pods "$WORK/local.yaml" app-local "$WORK/local-pods.yaml"
-printf '    %-12s %s pods  ' local "$(grep -c '^kind: Pod' "$WORK/local-pods.yaml" || true)"
-kyverno apply gitops/platform/kyverno-policies/ -r "$WORK/local-pods.yaml" \
-  >"$WORK/local-kyverno.log" 2>&1
-tail -n 1 "$WORK/local-kyverno.log"
+check_pods local "$WORK/local-pods.yaml"
 
 render_pods "$WORK/local-data.yaml" app-data "$WORK/local-data-pods.yaml"
-printf '    %-12s %s pods  ' local-data "$(grep -c '^kind: Pod' "$WORK/local-data-pods.yaml" || true)"
-kyverno apply gitops/platform/kyverno-policies/ -r "$WORK/local-data-pods.yaml" \
-  >"$WORK/local-data-kyverno.log" 2>&1
-tail -n 1 "$WORK/local-data-kyverno.log"
+check_pods local-data "$WORK/local-data-pods.yaml"
 
 echo "==> All GitOps manifests valid."

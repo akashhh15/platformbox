@@ -84,5 +84,8 @@ jobs:
       - name: Render and validate overlays
         run: bash scripts/gitops-validate.sh
 
+      - name: Run Kyverno policy unit tests
+        run: bash scripts/policy-test.sh
+
       - name: Lint pinned Helm charts
         run: bash scripts/helm-lint.sh
