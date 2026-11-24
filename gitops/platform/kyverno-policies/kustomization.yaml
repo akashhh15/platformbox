@@ -6,3 +6,5 @@ resources:
   - require-resource-limits.yaml
   - require-non-root.yaml
   - require-probes.yaml
+  - require-container-hardening.yaml
+  - disallow-host-access.yaml

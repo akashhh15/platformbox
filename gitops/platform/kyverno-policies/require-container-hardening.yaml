@@ -1,0 +1,38 @@
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: require-container-hardening
+  annotations:
+    policies.kyverno.io/title: Require restricted container hardening
+    policies.kyverno.io/category: Pod Security
+    policies.kyverno.io/severity: high
+spec:
+  validationActions: ["Deny"]
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods"]
+  matchConditions:
+    - name: application-namespace
+      expression: "object.metadata.?namespace.orValue('') in ['app-dev', 'app-staging', 'app-prod']"
+  validations:
+    - expression: "object.spec.?securityContext.?seccompProfile.?type.orValue('') == 'RuntimeDefault'"
+      message: "Pod securityContext must set seccompProfile.type: RuntimeDefault."
+    - expression: >-
+        object.spec.containers.all(c,
+        c.?securityContext.?readOnlyRootFilesystem.orValue(false) == true)
+      message: "Every container must set readOnlyRootFilesystem: true."
+    - expression: >-
+        object.spec.containers.all(c,
+        'ALL' in c.?securityContext.?capabilities.?drop.orValue([]))
+      message: "Every container must drop ALL Linux capabilities."
+    - expression: >-
+        object.spec.?initContainers.orValue([]).all(c,
+        c.?securityContext.?readOnlyRootFilesystem.orValue(false) == true)
+      message: "Every init container must set readOnlyRootFilesystem: true."
+    - expression: >-
+        object.spec.?initContainers.orValue([]).all(c,
+        'ALL' in c.?securityContext.?capabilities.?drop.orValue([]))
+      message: "Every init container must drop ALL Linux capabilities."
