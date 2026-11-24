@@ -10,7 +10,7 @@
 | 3 — GitOps and platform layer | Complete — merged and verified | kind config, Argo CD app-of-apps, ingress, CEL policies, monitoring, logging, rollouts; `make check` passes; clean rebuild succeeded; all Applications `Synced`/`Healthy` |
 | 4 — Application delivery | Complete — merged and verified | Kustomize base, dev/staging/prod overlays, ApplicationSets, local data/secret substitutes; `make check` and `make local-smoke` pass; PR #8 merged |
 | 5 — CI/CD | Complete — merged and verified | 7 GitHub workflows, GitLab CI with Buildah/Trivy/Syft/Cosign/ECR OIDC, digest write-back, offline workflow validator; PR #13 merged; live pipelines are human-run |
-| 6 — DevSecOps and policy | Not started | Kyverno policies and tests, threat model |
+| 6 — DevSecOps and policy | Complete — awaiting review | Two CEL hardening policies, 35 offline policy tests, threat model, ADR-023 |
 | 7 — Observability and SLOs | Not started | Dashboards, recording rules, burn-rate alerts, runbooks |
 | 8 — Progressive delivery | Not started | Canary, analysis, automatic rollback, demo |
 | 9 — Resilience (extension) | Not started | k6, chaos, game day, backup and restore |
@@ -62,6 +62,7 @@ runtime is a local `kind` cluster; AWS Terraform is validated with
 | 2026-11-22 | Strengthen offline evidence instead of emulating AWS locally | ADR-020 |
 | 2026-11-22 | Buildah 1.46.1 over archived Kaniko for unprivileged GitLab builds | ADR-021 |
 | 2026-11-22 | Sign the pushed digest, normalize artifacts in one helper, and layer loop prevention with offline workflow validation | ADR-022 |
+| 2026-11-24 | Restrict new hardening policies to app-dev/staging/prod and defer signature admission until the GitLab OIDC subject is known | ADR-023 |
 
 ## Open items
 
@@ -73,6 +74,10 @@ runtime is a local `kind` cluster; AWS Terraform is validated with
   receiver until it is (Phase 7).
 - The optional AWS path has no account, budget e-mail or OIDC roles. This is
   intentional and costs nothing.
+- Image signature admission is not enforced. After the GitLab project path and
+  OIDC `sub` are confirmed, add a cluster-gated `ImageValidatingPolicy` in Audit,
+  verify a real signed digest, then promote it to Deny. See ADR-023 and
+  `docs/threat-model.md`.
 - Docker's data disk was moved from C: to D: with a junction. C: now has about
   12 GB free and the kind cluster starts normally.
 - The Phase 3 pull requests #6 and #7 are merged; `main` is the source of truth.
@@ -105,6 +110,9 @@ are in [docs/SETUP.md](docs/SETUP.md).
       and every GitHub/GitLab variable listed in docs/SETUP.md §§5–6.
 - [ ] Run the GitHub and GitLab pipeline tests in docs/SETUP.md §7. Do not
       approve `terraform-apply` unless you intend to create AWS resources.
+- [ ] Add and promote an EKS-gated image signature admission policy once the
+      GitLab project path, OIDC subject and a real signed digest are known
+      (ADR-023).
 - [ ] Supply the Slack webhook through a secret, never through Git.
 - [x] After final verification, mark the Phase 3 PR ready and merge it through
   GitHub. Do not push directly to `main`.
@@ -147,6 +155,34 @@ are in [docs/SETUP.md](docs/SETUP.md).
 - Live GitHub and GitLab pipelines were not run by the agent. Human test steps
   and the full secret/variable inventory are in `docs/SETUP.md` §§5–7. No AWS
   resource was created.
+
+### 2026-11-24 — Phase 6 implemented
+
+- Added two CEL `ValidatingPolicy` resources: `require-container-hardening`
+  (seccomp, read-only root filesystem, capability drops) and
+  `disallow-host-access` (host namespaces, hostPath, privileged containers).
+  Both match only `app-dev`, `app-staging` and `app-prod`.
+- Added 35 offline `kyverno test` assertions covering all seven policies with
+  pass, fail and out-of-scope skip cases. A temporary negative control that
+  changed two expected `fail` values to `pass` produced two test failures, so
+  the suite detects lost denials.
+- Wired `make test` to the new `policy-test` target and added a policy test step
+  to the GitHub `gitops-validate` workflow.
+- Fixed `scripts/gitops-validate.sh`: the CLI silently loaded zero policies when
+  `kustomization.yaml` sat beside the policy manifests. It now builds a clean
+  policy directory, asserts that all policies loaded, and reports 21 passes for
+  dev/staging/prod, 15 passes plus 6 skips for local, and 10 passes plus 4 skips
+  for local-data.
+- Added `docs/threat-model.md` with assets, trust boundaries, STRIDE controls,
+  residual risks and human tasks, plus ADR-023 for the scope and deferred image
+  signature admission decision.
+- Validation: `bash -n scripts/gitops-validate.sh scripts/policy-test.sh`
+  passed; `kyverno test gitops/platform/kyverno-policies/tests --remove-color
+  --require-tests` reported 35 passed, 0 failed; `./tools/bin/make.exe check`
+  exited 0 with 160 overlay contract checks, Checkov 194/355/131 passed and 0
+  failed, gitleaks clean, and all pytest cases passing.
+- No AWS or GitLab resource was created, modified or deleted. Image signature
+  admission remains a documented human task (ADR-023).
 
 ### 2026-11-21 — Phase 3 implemented
 
