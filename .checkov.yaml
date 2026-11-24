@@ -17,3 +17,6 @@ skip-path:
   # labels, probes, limits, etc.), so production hardening checks do not apply.
   # checkov matches skip-path by directory name, so use the bare name.
   - fixtures
+  # Phase 6 policy unit-test fixtures use the same deliberately bad pods, plus
+  # a kube-system and an app-data pod that are outside the hardened namespaces.
+  - tests
