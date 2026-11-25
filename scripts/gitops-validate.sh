@@ -15,7 +15,7 @@ else
 fi
 export PATH="$ROOT/$VENV_BIN:$ROOT/tools/bin:$PATH"
 
-for bin in kustomize kubeconform yamllint yq kyverno; do
+for bin in kustomize kubeconform yamllint yq kyverno promtool jq; do
   if ! command -v "$bin" >/dev/null 2>&1; then
     echo "ERROR: $bin is not installed. Run 'make tools' first." >&2
     exit 1
@@ -26,7 +26,7 @@ WORK="$(mktemp -d "${TMPDIR:-/tmp}/platformbox-gitops.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 
 # CRDs whose schemas are not part of kubeconform's bundled Kubernetes schemas.
-SKIP='Application,ApplicationSet,ValidatingPolicy,Rollout,ServiceMonitor,ExternalSecret,SecretStore,ClusterSecretStore'
+SKIP='Application,ApplicationSet,ValidatingPolicy,Rollout,ServiceMonitor,PrometheusRule,AlertmanagerConfig,ExternalSecret,SecretStore,ClusterSecretStore'
 
 echo "==> yamllint: GitOps manifests"
 yamllint -c .yamllint.yaml gitops
@@ -104,3 +104,5 @@ render_pods "$WORK/local-data.yaml" app-data "$WORK/local-data-pods.yaml"
 check_pods local-data "$WORK/local-data-pods.yaml"
 
 echo "==> All GitOps manifests valid."
+
+bash "$ROOT/scripts/observability-validate.sh"

@@ -98,6 +98,8 @@ for env in dev staging prod local; do
   for svc in api worker; do
     check "$env $svc ServiceMonitor" "$(yq ea "[select(.kind == \"ServiceMonitor\" and .metadata.name == \"$svc\")] | length" "$render")" "1"
   done
+  check "$env api ServiceMonitor rollout labels" "$(yq ea '[select(.kind == "ServiceMonitor" and .metadata.name == "api") | ((.spec.podTargetLabels // []) | contains(["app.kubernetes.io/version", "rollouts-pod-template-hash"]))] | all' "$render")" "true"
+  check "$env worker ServiceMonitor version label" "$(yq ea '[select(.kind == "ServiceMonitor" and .metadata.name == "worker") | ((.spec.podTargetLabels // []) | contains(["app.kubernetes.io/version"]))] | all' "$render")" "true"
 
   # Default-deny plus explicit allows.
   check "$env default-deny NetworkPolicy" "$(yq ea '[select(.kind == "NetworkPolicy" and .metadata.name == "default-deny")] | length' "$render")" "1"
