@@ -51,7 +51,7 @@ def root() -> dict[str, str | int]:
     return {
         "service": settings.service_name,
         "environment": settings.environment,
-        "version": "0.1.0",
+        "version": settings.service_version,
         "processed": processed_count(),
     }
 

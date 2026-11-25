@@ -1,0 +1,32 @@
+# This resource is only generated on clusters explicitly labelled
+# `platformbox.io/slack-alerting: "true"`. On kind the chart's default null
+# receiver remains the fallback, so no Slack Secret is required locally.
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: AlertmanagerConfig
+metadata:
+  name: slack
+  namespace: monitoring
+  labels:
+    platformbox.io/alertmanager-config: slack
+spec:
+  route:
+    receiver: slack
+    groupBy:
+      - namespace
+      - alertname
+      - severity
+    groupWait: 30s
+    groupInterval: 5m
+    repeatInterval: 12h
+    matchers:
+      - name: severity
+        value: critical|warning
+        matchType: =~
+  receivers:
+    - name: slack
+      slackConfigs:
+        - apiURL:
+            name: alertmanager-slack
+            key: webhook_url
+          channel: "#alerts"
+          sendResolved: true

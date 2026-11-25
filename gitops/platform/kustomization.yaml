@@ -7,6 +7,8 @@ resources:
   - kyverno-policies-app.yaml
   - monitoring.yaml
   - logging.yaml
+  - observability
+  - alertmanager-slack-applicationset.yaml
   - argo-rollouts.yaml
   - apps-applicationset.yaml
   - aws-secrets-store-applicationset.yaml

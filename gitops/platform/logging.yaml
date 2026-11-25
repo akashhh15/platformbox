@@ -13,14 +13,58 @@ spec:
     targetRevision: 2.10.2
     helm:
       values: |
+        # Sizing is a starting point for a disposable dev cluster, not a
+        # measured recommendation. TODO(measure): replace with observed usage.
         loki:
           enabled: true
           persistence:
             enabled: false
+          config:
+            limits_config:
+              retention_period: 168h
+            compactor:
+              retention_enabled: true
+              compaction_interval: 10m
+              delete_request_store: filesystem
+          datasource:
+            uid: loki
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
         promtail:
           enabled: true
+          config:
+            snippets:
+              pipelineStages:
+                - cri: {}
+                - json:
+                    expressions:
+                      level: level
+                      service: service
+                      environment: environment
+                      version: version
+                      message: message
+                - labels:
+                    level:
+                    service:
+                    environment:
+                    version:
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
         grafana:
           enabled: false
+          sidecar:
+            datasources:
+              enabled: true
   destination:
     server: https://kubernetes.default.svc
     namespace: logging

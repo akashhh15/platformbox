@@ -20,7 +20,7 @@ export PATH := $(CURDIR)/$(VENV_BIN):$(CURDIR)/$(TOOLS_BIN):$(PATH)
 
 .PHONY: help tools tools-check pre-commit-install fmt lint validate scan test check \
         terraform-test contract workflows-validate policy-test local-up local-down up down demo \
-        gitops-validate local-smoke aws-plan aws-apply clean
+        gitops-validate observability-validate local-smoke aws-plan aws-apply clean
 
 ##@ General
 
@@ -110,6 +110,9 @@ demo: ## Run the five-minute local demo
 
 gitops-validate: ## Render and validate every Kustomize overlay and Helm chart
 	@bash scripts/gitops-validate.sh
+
+observability-validate: ## Check Prometheus rules, dashboards and alert runbooks
+	@bash scripts/observability-validate.sh
 
 policy-test: ## Run Kyverno unit tests against compliant and violating pods
 	@bash scripts/policy-test.sh

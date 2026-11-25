@@ -5,9 +5,10 @@ progressive delivery, policy-as-code, observability, SLOs, and a supply chain
 that signs what it ships. The AWS EKS production path is written and validated
 with Terraform, but it is optional and is never applied by the agent.
 
-> **Status: Phase 5 — CI/CD.** GitHub Actions and GitLab CI are written and
-> offline-validated; live pipelines require human-supplied tokens and OIDC
-> roles. The local platform and its application manifests run on `kind`.
+> **Status: Phase 7 — Observability and SLOs.** Dashboards, SLO rules, alerts
+> and runbooks are written and statically validated. GitHub Actions and GitLab
+> CI remain offline-validated; live pipelines need human-supplied tokens and
+> OIDC roles. The local platform and its application manifests run on `kind`.
 > See [PROGRESS.md](PROGRESS.md) for the phase plan and current state, and
 > [docs/architecture.md](docs/architecture.md) for the delivery model.
 
@@ -20,7 +21,7 @@ with Terraform, but it is optional and is never applied by the agent.
 | GitOps | Argo CD app-of-apps, ApplicationSets, AppProjects, sync waves | Phase 3–4 |
 | CI/CD | GitHub Actions for infra quality; GitLab CI for build, scan, sign, publish and Git write-back | Phase 5 |
 | DevSecOps | Trivy, Gitleaks, SBOM, Cosign keyless signing, Kyverno admission policies | Phase 5–6 |
-| Observability and SRE | Prometheus, Grafana, Loki, SLO recording rules, multi-window burn-rate alerts, runbooks | Phase 7 |
+| Observability and SRE | Prometheus, Grafana, Loki, six dashboards, SLO recording rules, multi-window burn-rate alerts, runbooks | Phase 7 (static validation; runtime steps in setup) |
 | Progressive delivery | Argo Rollouts canary with Prometheus analysis and automatic rollback | Phase 8 |
 | Resilience | k6 load tests, chaos experiments, game-day template, backup and restore | Phase 9 |
 | FinOps | Cost model, optional Infracost, teardown and pause procedures | Phase 10 |
@@ -67,9 +68,11 @@ Terraform apply path is design-validated only. The trade-off is recorded in
 4. Argo CD syncs the change to the local kind cluster.
 5. Argo Rollouts performs a canary release with Prometheus analysis and
    automatic rollback.
-6. Kyverno admission policies block unsigned or non-compliant workloads.
-7. Prometheus, Grafana and Loki provide metrics, logs and SLO burn-rate alerts,
-   each with a runbook.
+6. Kyverno admission policies block non-compliant workloads. Image-signature
+   admission is deliberately deferred until a real signed digest and OIDC
+   subject are available (ADR-023).
+7. Prometheus, Grafana and Loki provide metrics, logs, SLO burn-rate alerts and
+   saved queries; each alert has a runbook.
 8. `make down` deletes the local cluster. The AWS path, if ever applied, has
    its own guarded targets and budget alerts.
 
@@ -153,6 +156,11 @@ No measurements are claimed yet. The following will be filled with real data:
 - [docs/adr/](docs/adr/) — architecture decisions, starting with ADR-000.
 - [docs/threat-model.md](docs/threat-model.md) — assets, trust boundaries,
   STRIDE controls and residual risks.
+- [docs/architecture.md](docs/architecture.md) — GitOps, SLO math and the
+  local-versus-AWS observability boundary.
+- [docs/log-queries.md](docs/log-queries.md) — saved LogQL queries and the
+  structured fields that make them work.
+- [docs/runbooks/](docs/runbooks/) — one runbook per alert.
 - [docs/PROMPTS.md](docs/PROMPTS.md) — the phased build prompts used for this
   project.
 

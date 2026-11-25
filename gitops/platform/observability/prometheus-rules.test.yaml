@@ -1,0 +1,142 @@
+# Unit tests for the PrometheusRule in prometheus-rules.yaml.
+#
+# scripts/observability-validate.sh extracts .spec into a plain rules file
+# named rules.yaml and copies this file next to it before running promtool.
+# Keep rule_files pointing at that generated filename.
+rule_files:
+  - rules.yaml
+
+evaluation_interval: 1m
+# Floating-point ratios such as 10/100 are not always bit-exact.
+fuzzy_compare: true
+
+tests:
+  - interval: 1m
+    input_series:
+      - series: 'http_requests_total{job="api",namespace="app-dev",handler="/items",status="2xx"}'
+        values: '0+90x12'
+      - series: 'http_requests_total{job="api",namespace="app-dev",handler="/items",status="5xx"}'
+        values: '0+10x12'
+    promql_expr_test:
+      - expr: platformbox:slo:api_availability:error_ratio_rate5m
+        eval_time: 10m
+        exp_samples:
+          - labels: 'platformbox:slo:api_availability:error_ratio_rate5m{namespace="app-dev"}'
+            value: 0.1
+
+  - interval: 1m
+    input_series:
+      - series: 'http_request_duration_seconds_count{job="api",namespace="app-dev",handler="/items"}'
+        values: '0+7680x12'
+      - series: 'http_request_duration_seconds_bucket{job="api",namespace="app-dev",handler="/items",le="0.5"}'
+        values: '0+5760x12'
+    promql_expr_test:
+      - expr: platformbox:slo:api_latency:error_ratio_rate5m
+        eval_time: 10m
+        exp_samples:
+          - labels: 'platformbox:slo:api_latency:error_ratio_rate5m{namespace="app-dev"}'
+            value: 0.25
+
+  - interval: 1m
+    input_series:
+      - series: 'http_requests_total{job="api",namespace="app-dev",handler="/items",status="2xx"}'
+        values: '0+90x70'
+      - series: 'http_requests_total{job="api",namespace="app-dev",handler="/items",status="5xx"}'
+        values: '0+10x70'
+    alert_rule_test:
+      - eval_time: 65m
+        alertname: PlatformBoxApiAvailabilityFastBurn
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              slo: availability
+              namespace: app-dev
+            exp_annotations:
+              summary: API availability error budget is burning fast in app-dev
+              description: >-
+                The 5xx ratio exceeded 14.4x the 0.5% error budget over both 1h
+                and 5m. At this rate the 30-day budget is exhausted in about two
+                days.
+              runbook_url: >-
+                https://github.com/akashhh15/platformbox/blob/main/docs/runbooks/api-availability-fast-burn.md
+
+  - interval: 1m
+    input_series:
+      - series: 'http_request_duration_seconds_count{job="api",namespace="app-dev",handler="/items"}'
+        values: '0+20x70'
+      - series: 'http_request_duration_seconds_bucket{job="api",namespace="app-dev",handler="/items",le="0.5"}'
+        values: '0+4x70'
+    alert_rule_test:
+      - eval_time: 65m
+        alertname: PlatformBoxApiLatencyFastBurn
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              slo: latency
+              namespace: app-dev
+            exp_annotations:
+              summary: API latency error budget is burning fast in app-dev
+              description: >-
+                More than 72% of requests were slower than the provisional 500 ms
+                target over both 1h and 5m (14.4x the 5% latency budget).
+              runbook_url: >-
+                https://github.com/akashhh15/platformbox/blob/main/docs/runbooks/api-latency-fast-burn.md
+
+  - interval: 1m
+    input_series:
+      - series: 'http_requests_total{job="api",namespace="app-dev",handler="/items",status="2xx"}'
+        values: '0+95x420'
+      - series: 'http_requests_total{job="api",namespace="app-dev",handler="/items",status="5xx"}'
+        values: '0+5x420'
+    alert_rule_test:
+      - eval_time: 410m
+        alertname: PlatformBoxApiAvailabilitySlowBurn
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              slo: availability
+              namespace: app-dev
+            exp_annotations:
+              summary: API availability error budget is burning slowly in app-dev
+              description: >-
+                The 5xx ratio exceeded 6x the 0.5% error budget over both 6h and
+                30m. This consumes about 5% of the 30-day budget per day.
+              runbook_url: >-
+                https://github.com/akashhh15/platformbox/blob/main/docs/runbooks/api-availability-slow-burn.md
+
+  - interval: 1m
+    input_series:
+      - series: 'kube_node_status_condition{node="kind-worker",condition="Ready",status="true"}'
+        values: 1 0 0 0 0 0 0 0
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: PlatformBoxNodeNotReady
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              node: kind-worker
+            exp_annotations:
+              summary: Node kind-worker is NotReady
+              description: The node has reported Ready=false for at least five minutes.
+              runbook_url: >-
+                https://github.com/akashhh15/platformbox/blob/main/docs/runbooks/node-not-ready.md
+
+  - interval: 1m
+    input_series:
+      - series: 'rollout_info{name="api",namespace="app-dev",phase="Abort"}'
+        values: 1 1 1 1 1 1 1 1
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: PlatformBoxRolloutAborted
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              name: api
+              namespace: app-dev
+            exp_annotations:
+              summary: Rollout api aborted in app-dev
+              description: >-
+                The Rollouts controller reported an error or an aborted/degraded
+                phase. Traffic should remain on the stable ReplicaSet.
+              runbook_url: >-
+                https://github.com/akashhh15/platformbox/blob/main/docs/runbooks/rollout-aborted.md

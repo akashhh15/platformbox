@@ -45,11 +45,14 @@ helm repo update >/dev/null 2>&1 || true
 # user and avoids pulling an extra image from ghcr.io on slow networks.
 # The repo-server timeouts give large Helm charts (kube-prometheus-stack)
 # enough time to download on slow networks; the defaults are 60s/90s.
+# The application-controller metrics Service is scraped by the Phase 7
+# ServiceMonitor in gitops/platform/observability.
 helm upgrade --install argocd argo/argo-cd \
   --version 10.18.2 \
   --namespace argocd \
   --set server.service.type=ClusterIP \
   --set dex.enabled=false \
+  --set controller.metrics.enabled=true \
   --set-json 'configs.params={"server.repo.server.timeout.seconds":"300","controller.repo.server.timeout.seconds":"300"}' \
   --set-json 'repoServer.env=[{"name":"ARGOCD_EXEC_TIMEOUT","value":"300s"}]' \
   --wait --timeout 300s

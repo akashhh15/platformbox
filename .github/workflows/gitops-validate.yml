@@ -6,7 +6,9 @@ on:
     paths:
       - gitops/**
       - scripts/gitops-validate.sh
+      - scripts/observability-validate.sh
       - scripts/helm-lint.sh
+      - docs/runbooks/**
       - .yamllint.yaml
       - .github/workflows/gitops-validate.yml
   push:
@@ -14,7 +16,9 @@ on:
     paths:
       - gitops/**
       - scripts/gitops-validate.sh
+      - scripts/observability-validate.sh
       - scripts/helm-lint.sh
+      - docs/runbooks/**
       - .yamllint.yaml
       - .github/workflows/gitops-validate.yml
 
@@ -76,6 +80,17 @@ jobs:
           tar -xzf /tmp/kyverno.tar.gz -C /usr/local/bin kyverno
           kyverno version
 
+      - name: Install promtool
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /tmp/prometheus.tar.gz \
+            'https://github.com/prometheus/prometheus/releases/download/v3.16.0/prometheus-3.16.0.linux-amd64.tar.gz'
+          checksum='68727009472a2c02e1ff7f062fd5b3e637285bffc8fc2d340c76fb449d6e0f34'
+          echo "$checksum  /tmp/prometheus.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/prometheus.tar.gz -C /usr/local/bin \
+            --strip-components=1 prometheus-3.16.0.linux-amd64/promtool
+          promtool --version
+
       - name: Set up Helm
         uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e
         with:
@@ -83,6 +98,9 @@ jobs:
 
       - name: Render and validate overlays
         run: bash scripts/gitops-validate.sh
+
+      - name: Validate Prometheus rules and dashboards
+        run: bash scripts/observability-validate.sh
 
       - name: Run Kyverno policy unit tests
         run: bash scripts/policy-test.sh

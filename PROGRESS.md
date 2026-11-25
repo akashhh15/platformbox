@@ -10,8 +10,8 @@
 | 3 — GitOps and platform layer | Complete — merged and verified | kind config, Argo CD app-of-apps, ingress, CEL policies, monitoring, logging, rollouts; `make check` passes; clean rebuild succeeded; all Applications `Synced`/`Healthy` |
 | 4 — Application delivery | Complete — merged and verified | Kustomize base, dev/staging/prod overlays, ApplicationSets, local data/secret substitutes; `make check` and `make local-smoke` pass; PR #8 merged |
 | 5 — CI/CD | Complete — merged and verified | 7 GitHub workflows, GitLab CI with Buildah/Trivy/Syft/Cosign/ECR OIDC, digest write-back, offline workflow validator; PR #13 merged; live pipelines are human-run |
-| 6 — DevSecOps and policy | Complete — awaiting review | Two CEL hardening policies, 35 offline policy tests, threat model, ADR-023 |
-| 7 — Observability and SLOs | Not started | Dashboards, recording rules, burn-rate alerts, runbooks |
+| 6 — DevSecOps and policy | Complete — merged and verified | Two CEL hardening policies, 35 offline policy tests, threat model, ADR-023; PR #15 merged |
+| 7 — Observability and SLOs | Complete — awaiting review | Six dashboards, SLO recording rules, ten alerts with runbooks, structured logs, worker metrics, opt-in Slack routing; static validation passes |
 | 8 — Progressive delivery | Not started | Canary, analysis, automatic rollback, demo |
 | 9 — Resilience (extension) | Not started | k6, chaos, game day, backup and restore |
 | 10 — FinOps (extension) | Not started | Cost model, optional Infracost, pause and teardown |
@@ -63,6 +63,8 @@ runtime is a local `kind` cluster; AWS Terraform is validated with
 | 2026-11-22 | Buildah 1.46.1 over archived Kaniko for unprivileged GitLab builds | ADR-021 |
 | 2026-11-22 | Sign the pushed digest, normalize artifacts in one helper, and layer loop prevention with offline workflow validation | ADR-022 |
 | 2026-11-24 | Restrict new hardening policies to app-dev/staging/prod and defer signature admission until the GitLab OIDC subject is known | ADR-023 |
+| 2026-11-25 | Provisional 99.5% availability and 95%-under-500-ms latency SLOs with multi-window burn-rate alerts | ADR-024 |
+| 2026-11-25 | Slack routing is generated only on explicitly labelled EKS clusters; kind keeps the chart's null receiver | ADR-025 |
 
 ## Open items
 
@@ -70,8 +72,9 @@ runtime is a local `kind` cluster; AWS Terraform is validated with
 - The GitHub repository and branch protection are configured.
 - The GitLab project, mirror token, write-back token, ECR OIDC role and CI
   variables are not created. The pipeline test plan is in docs/SETUP.md §7.
-- The Slack incoming webhook is not supplied yet; Alertmanager will use a null
-  receiver until it is (Phase 7).
+- The Slack incoming webhook is not supplied yet. kind uses the chart's null
+  receiver; EKS clusters must opt in with the labels described in
+  `docs/SETUP.md` §8 and ADR-025.
 - The optional AWS path has no account, budget e-mail or OIDC roles. This is
   intentional and costs nothing.
 - Image signature admission is not enforced. After the GitLab project path and
@@ -113,7 +116,10 @@ are in [docs/SETUP.md](docs/SETUP.md).
 - [ ] Add and promote an EKS-gated image signature admission policy once the
       GitLab project path, OIDC subject and a real signed digest are known
       (ADR-023).
-- [ ] Supply the Slack webhook through a secret, never through Git.
+- [ ] If Slack is wanted on EKS, create the AWS Secrets Manager secret
+      `platformbox/alertmanager` with the JSON property `webhook_url`, then add
+      `platformbox.io/slack-alerting: "true"` to the registered cluster Secret.
+      Never put the webhook in Git. See `docs/SETUP.md` §8 and ADR-025.
 - [x] After final verification, mark the Phase 3 PR ready and merge it through
   GitHub. Do not push directly to `main`.
 - [x] After the merge, change `gitops/platform/kyverno-policies-app.yaml` to
@@ -183,6 +189,51 @@ are in [docs/SETUP.md](docs/SETUP.md).
   failed, gitleaks clean, and all pytest cases passing.
 - No AWS or GitLab resource was created, modified or deleted. Image signature
   admission remains a documented human task (ADR-023).
+
+### 2026-11-25 — Phase 7 implemented
+
+- Added six Grafana dashboard ConfigMaps under
+  `gitops/platform/observability/dashboards`: cluster overview, nodes and
+  Karpenter, Argo CD, API RED, worker, and Kyverno. The KPS sidecar picks them
+  up through `grafana_dashboard: "1"`.
+- Added 22 Prometheus recording/alerting rules: API availability and latency
+  SLO ratios for 5m/1h/30m/6h/30d, error-budget gauges, four fast/slow burn
+  alerts and six platform alerts. All ten alerts have severity, summary,
+  description, `runbook_url` and a runbook under `docs/runbooks/`.
+- Added `promtool test rules` coverage for both SLO ratios, availability and
+  latency fast burn, availability slow burn, node readiness and rollout aborts.
+  The CRD `.spec` is extracted before checking so `promtool` sees a plain rules
+  file.
+- Added structured `service`, `environment` and `version` fields to API and
+  worker logs, a configurable `service_version`, worker queue/job/duration
+  metrics, and `podTargetLabels` on the app ServiceMonitors. Promtail promotes
+  the structured fields to Loki labels; saved queries are in
+  `docs/log-queries.md`.
+- Set Prometheus retention to 30d and Loki retention to 168h with explicit
+  resources. KPS, Loki, Argo CD, Rollouts and Karpenter chart interfaces were
+  verified against the pinned chart versions. All sizing values are documented
+  as starting points with `TODO(measure)`.
+- Added explicit platform ServiceMonitors for Argo CD, Argo Rollouts and
+  Kyverno, and enabled the corresponding chart metrics Services. Slack routing
+  is generated only by an EKS-labelled ApplicationSet; kind keeps the chart's
+  null receiver. See ADR-025.
+- Added `scripts/observability-validate.sh`, wired it into
+  `scripts/gitops-validate.sh`, the Makefile and the `gitops-validate` workflow,
+  and updated the kubeconform skip list for Prometheus Operator CRDs.
+- Validation: `promtool check rules` reported `SUCCESS: 22 rules found`;
+  `promtool test rules` reported `SUCCESS`; dashboard JSON, UID uniqueness,
+  alert metadata, runbook links, rendered-resource assertions and Slack gating
+  all passed. `bash scripts/gitops-validate.sh` reported 0 invalid resources in
+  every overlay and 35 Kyverno policy tests passing.
+- `./tools/bin/make.exe check` exited 0: actionlint 1.7.12 clean, pre-commit
+  hooks clean, 168 overlay contract checks passed, gitleaks found no leaks,
+  Checkov passed 194 Terraform/355 Kubernetes/131 Dockerfile checks with 0
+  failures, and pytest passed 12 API and 8 worker tests.
+- Runtime verification on kind was not run because the Docker daemon and
+  `kind get clusters` were unavailable in this environment. The manual runtime
+  checklist is in `docs/SETUP.md` §8.
+- No AWS resource was created, modified or deleted. No GitHub or GitLab live
+  pipeline was triggered.
 
 ### 2026-11-21 — Phase 3 implemented
 

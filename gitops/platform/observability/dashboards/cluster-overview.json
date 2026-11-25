@@ -1,0 +1,95 @@
+{
+  "uid": "platformbox-cluster",
+  "title": "PlatformBox / Cluster overview",
+  "tags": ["platformbox", "cluster"],
+  "timezone": "utc",
+  "schemaVersion": 39,
+  "refresh": "30s",
+  "time": {"from": "now-6h", "to": "now"},
+  "panels": [
+    {
+      "id": 1,
+      "title": "CPU usage (excluding system namespaces)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{container!=\"\", namespace!~\"kube-system|local-path-storage\"}[5m]))",
+          "legendFormat": "CPU cores"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Memory working set (excluding system namespaces)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(container_memory_working_set_bytes{container!=\"\", namespace!~\"kube-system|local-path-storage\"}) / 1024 / 1024 / 1024",
+          "legendFormat": "GiB"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Ready nodes",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 8},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(kube_node_status_condition{condition=\"Ready\", status=\"true\"})",
+          "legendFormat": "ready"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Running pods",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 4, "x": 4, "y": 8},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "count(kube_pod_info)",
+          "legendFormat": "pods"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "kube-apiserver up",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 4, "x": 8, "y": 8},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "min(up{job=\"apiserver\"})",
+          "legendFormat": "up"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Pods not Ready",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (namespace) (kube_pod_status_ready{condition=\"false\"})",
+          "legendFormat": "{{namespace}}"
+        }
+      ]
+    }
+  ]
+}
