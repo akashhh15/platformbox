@@ -18,6 +18,10 @@ if ! command -v "$HELM" >/dev/null 2>&1; then
     exit 1
   fi
 fi
+if ! command -v yq >/dev/null 2>&1; then
+  echo "ERROR: yq is not installed. Run 'make tools' first." >&2
+  exit 1
+fi
 
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/platformbox-helm.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
@@ -37,6 +41,7 @@ done
 
 CHARTS=(
   "argo/argo-cd:10.18.2"
+  "argo/argo-cd:7.0.0"
   "argo/argo-rollouts:2.38.0"
   "ingress-nginx/ingress-nginx:4.11.3"
   "kyverno/kyverno:3.10.0"
@@ -51,9 +56,34 @@ for entry in "${CHARTS[@]}"; do
   chart="${ref##*/}"
   printf '==> helm lint %s %s\n' "$ref" "$version"
   "$HELM" pull "$ref" --version "$version" --destination "$WORK" >/dev/null
-  rm -rf "$WORK/$chart"
-  tar -xzf "$WORK/$chart-$version.tgz" -C "$WORK"
-  "$HELM" lint "$WORK/$chart"
+  chart_dir="$WORK/$chart-$version"
+  rm -rf "$chart_dir"
+  mkdir -p "$chart_dir"
+  tar -xzf "$WORK/$chart-$version.tgz" -C "$chart_dir" --strip-components=1
+  "$HELM" lint "$chart_dir"
 done
 
 echo "==> All pinned Helm charts linted."
+
+echo "==> Helm values used by Phase 8 notification configuration"
+VALUES_WORK="$WORK/values-charts"
+mkdir -p "$VALUES_WORK"
+for entry in "argo/argo-cd:10.18.2" "argo/argo-cd:7.0.0" "argo/argo-rollouts:2.38.0"; do
+  ref="${entry%%:*}"
+  version="${entry##*:}"
+  chart="${ref##*/}"
+  chart_dir="$VALUES_WORK/$chart-$version"
+  "$HELM" pull "$ref" --version "$version" --destination "$VALUES_WORK" >/dev/null
+  mkdir -p "$chart_dir"
+  tar -xzf "$VALUES_WORK/$chart-$version.tgz" -C "$chart_dir" --strip-components=1
+  if [[ "$chart" == "argo-cd" ]]; then
+    "$HELM" template argocd "$chart_dir" \
+      --values gitops/bootstrap/argocd-notifications-values.yaml >/dev/null
+  fi
+done
+yq e '.spec.source.helm.values' gitops/platform/argo-rollouts.yaml \
+  >"$VALUES_WORK/rollouts-values.yaml"
+"$HELM" template argo-rollouts "$VALUES_WORK/argo-rollouts-2.38.0" \
+  --values "$VALUES_WORK/rollouts-values.yaml" >/dev/null
+
+echo "==> Shared Helm values render with all pinned chart versions."

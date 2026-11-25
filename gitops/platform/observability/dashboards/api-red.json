@@ -51,15 +51,15 @@
     },
     {
       "id": 4,
-      "title": "Request rate by ReplicaSet hash",
+      "title": "Request rate by canary/stable ReplicaSet hash",
       "type": "timeseries",
       "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (rollouts_pod_template_hash) (rate(http_requests_total{job=\"api\"}[5m]))",
-          "legendFormat": "hash {{rollouts_pod_template_hash}}"
+          "expr": "sum by (rollouts_pod_template_hash, app_kubernetes_io_version) (rate(http_requests_total{job=\"api\", handler!~\"/metrics|/health|/ready\"}[5m]))",
+          "legendFormat": "hash {{rollouts_pod_template_hash}} / v{{app_kubernetes_io_version}}"
         }
       ]
     },
@@ -87,6 +87,21 @@
         {
           "refId": "A",
           "expr": "platformbox:slo:api_latency:error_budget_remaining_ratio",
+          "legendFormat": "{{namespace}}"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Canary replica fraction (replica-weighted)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 24},
+      "description": "Updated API replicas divided by desired replicas. With no traffic router this is the best-effort canary traffic share; pair it with panel 4 to see which ReplicaSet serves requests.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * sum by (namespace) (rollout_info_replicas_updated{name=\"api\"}) / clamp_min(sum by (namespace) (rollout_info_replicas_desired{name=\"api\"}), 1)",
           "legendFormat": "{{namespace}}"
         }
       ]

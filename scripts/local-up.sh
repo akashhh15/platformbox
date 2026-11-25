@@ -46,10 +46,12 @@ helm repo update >/dev/null 2>&1 || true
 # The repo-server timeouts give large Helm charts (kube-prometheus-stack)
 # enough time to download on slow networks; the defaults are 60s/90s.
 # The application-controller metrics Service is scraped by the Phase 7
-# ServiceMonitor in gitops/platform/observability.
+# ServiceMonitor in gitops/platform/observability. Notification templates and
+# triggers are shared with the Terraform bootstrap through a values file.
 helm upgrade --install argocd argo/argo-cd \
   --version 10.18.2 \
   --namespace argocd \
+  --values "$ROOT/gitops/bootstrap/argocd-notifications-values.yaml" \
   --set server.service.type=ClusterIP \
   --set dex.enabled=false \
   --set controller.metrics.enabled=true \

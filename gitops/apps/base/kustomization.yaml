@@ -9,6 +9,8 @@ resources:
   - api/serviceaccount.yaml
   - api/service.yaml
   - api/rollout.yaml
+  - api/analysis-success-rate.yaml
+  - api/analysis-p95-latency.yaml
   - api/ingress.yaml
   - api/servicemonitor.yaml
   - api/hpa.yaml

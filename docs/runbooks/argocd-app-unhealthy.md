@@ -1,6 +1,6 @@
-# Runbook: PlatformBoxArgoCDAppUnhealthy
+# Runbook: Argo CD Application unhealthy
 
-- **Alert:** `PlatformBoxArgoCDAppUnhealthy`
+- **Alerts:** `PlatformBoxArgoCDAppUnhealthy`, `ArgoCDSyncFailed`, `ArgoCDHealthDegraded`
 - **Severity:** warning
 
 ## Symptoms

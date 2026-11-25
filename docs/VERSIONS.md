@@ -206,6 +206,20 @@ The Prometheus Operator ignores the `Optional` flag on an AlertmanagerConfig
 `apiURL` Secret; that is why Slack routing is gated by cluster label rather than
 deployed with a placeholder secret (ADR-025).
 
+## Phase 8 interface verification
+
+These facts were checked against official documentation and the pinned charts on
+2026-11-25. No chart version changed in Phase 8.
+
+| Component | Verified interface | Evidence |
+|---|---|---|
+| Argo Rollouts canary | Without `trafficRouting`, `setWeight` is approximated with replica ratios; `setCanaryScale` needs a traffic router | [Canary docs](https://argo-rollouts.readthedocs.io/en/stable/features/canary/) |
+| Argo Rollouts ALB | `trafficRouting.alb.ingress`, `rootService`, `servicePort` and Ingress backend `port.name: use-annotation` are supported, but need ALB | [ALB docs](https://argo-rollouts.readthedocs.io/en/stable/features/traffic-management/alb/) |
+| AnalysisTemplate | `args[].valueFrom.podTemplateHashValue`, `interval`, `count`, `failureLimit`, `successCondition` and the Prometheus provider are supported | [Analysis docs](https://argo-rollouts.readthedocs.io/en/stable/features/analysis/) and [Prometheus provider docs](https://argo-rollouts.readthedocs.io/en/stable/analysis/prometheus/) |
+| Argo Rollouts chart 2.38.0 | Notification ConfigMap keys are `notifiers`, `templates`, `triggers` and `subscriptions`; built-in trigger names still need a `trigger.<name>` entry | Pulled chart template and `manifests/notifications-install.yaml` |
+| Argo CD chart 10.18.2 and 7.0.0 | Both render `argocd-notifications-cm` from `notifications.notifiers/templates/triggers/subscriptions` | `helm template` of both pinned chart versions |
+| Alertmanager v0.27.0 | `POST /api/v2/alerts` requires `Content-Type: application/json` and an array of alerts with `labels`, optional `annotations` and optional timestamps | [Alerts API](https://prometheus.io/docs/alerting/latest/alerts_api/) |
+
 ## Platform versions to pin in later phases
 
 These are intentionally unresolved until the phase that needs them. Resolve

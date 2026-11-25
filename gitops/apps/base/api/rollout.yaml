@@ -14,18 +14,45 @@ metadata:
     app.kubernetes.io/component: api
     app.kubernetes.io/part-of: platformbox
 spec:
-  replicas: 2
+  # Four replicas make replica-weighted steps meaningful: 25% and 50% map to
+  # one and two canary pods. See ADR-026 for why no traffic router is used.
+  replicas: 4
   revisionHistoryLimit: 3
   selector:
     matchLabels:
       app.kubernetes.io/name: api
-  # Phase 4 uses a canary strategy with no steps. Argo Rollouts treats this as
-  # a basic rolling update using maxSurge/maxUnavailable. Steps and Prometheus
-  # analysis are added in Phase 8. See ADR-018.
+  # Replica-weighted canary. Without a traffic router Argo Rollouts asks the
+  # ReplicaSets to approximate each setWeight using replica counts, so the
+  # observed traffic split is best-effort rather than exact. See ADR-026.
   strategy:
     canary:
       maxSurge: 1
       maxUnavailable: 0
+      steps:
+        - setWeight: 10
+        - pause:
+            duration: 30s
+        - setWeight: 25
+        - pause:
+            duration: 30s
+        - setWeight: 50
+        - pause:
+            duration: 30s
+        - setWeight: 100
+        - pause:
+            duration: 30s
+      # Background analysis starts with the canary and stops when the rollout
+      # completes. Two failed measurements abort the rollout and return all
+      # traffic to the stable ReplicaSet.
+      analysis:
+        startingStep: 0
+        templates:
+          - templateName: api-canary-success-rate
+          - templateName: api-canary-p95-latency
+        args:
+          - name: canary-hash
+            valueFrom:
+              podTemplateHashValue: Latest
   template:
     metadata:
       labels:

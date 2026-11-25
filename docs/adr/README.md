@@ -33,5 +33,6 @@ one with a new ADR instead of rewriting history.
 | [ADR-023](ADR-023-policy-scope-and-deferred-signature-admission.md) | Application-only hardening scope and deferred signature admission | Accepted |
 | [ADR-024](ADR-024-slo-targets-and-burn-rate-alerts.md) | Provisional API SLOs with multi-window burn-rate alerts | Accepted |
 | [ADR-025](ADR-025-opt-in-slack-alert-routing.md) | Opt-in Slack alert routing with a null fallback | Accepted |
+| [ADR-026](ADR-026-replica-weighted-canary.md) | Replica-weighted canary for Phase 8 | Accepted |
 
 Use [template.md](template.md) for a new ADR.

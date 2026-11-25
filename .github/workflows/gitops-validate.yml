@@ -7,7 +7,11 @@ on:
       - gitops/**
       - scripts/gitops-validate.sh
       - scripts/observability-validate.sh
+      - scripts/progressive-validate.sh
+      - scripts/demo-canary-good.sh
+      - scripts/demo-canary-bad.sh
       - scripts/helm-lint.sh
+      - docs/demo.md
       - docs/runbooks/**
       - .yamllint.yaml
       - .github/workflows/gitops-validate.yml
@@ -17,7 +21,11 @@ on:
       - gitops/**
       - scripts/gitops-validate.sh
       - scripts/observability-validate.sh
+      - scripts/progressive-validate.sh
+      - scripts/demo-canary-good.sh
+      - scripts/demo-canary-bad.sh
       - scripts/helm-lint.sh
+      - docs/demo.md
       - docs/runbooks/**
       - .yamllint.yaml
       - .github/workflows/gitops-validate.yml

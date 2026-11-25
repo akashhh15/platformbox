@@ -103,8 +103,12 @@ down: ## Delete the local platform after an explicit confirmation
 	@read -r -p "Continue? [y/N] " ans; case "$$ans" in [yY]|[yY][eE][sS]) ;; *) echo "Aborted."; exit 1;; esac
 	@$(MAKE) local-down
 
-demo: ## Run the five-minute local demo
-	@echo "Not implemented until Phase 8 (progressive delivery demo)."
+demo: ## Prepare a canary demo branch (DEMO=good|bad, default good)
+	@case "$(DEMO)" in \
+		''|good) bash scripts/demo-canary-good.sh;; \
+		bad) bash scripts/demo-canary-bad.sh;; \
+		*) echo "ERROR: DEMO must be 'good' or 'bad'." >&2; exit 1;; \
+	esac
 
 ##@ Validation and optional AWS path
 

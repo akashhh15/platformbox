@@ -60,14 +60,17 @@ Per service the base provides:
 
 | Service | Workload | Port | Probes | Extras |
 |---|---|---|---|---|
-| api | Argo Rollout (basic rolling update) | 8000 | `/health`, `/ready` | ServiceMonitor, HPA, PDB, ExternalSecret, ALB Ingress |
+| api | Argo Rollout (replica-weighted canary) | 8000 | `/health`, `/ready` | ServiceMonitor, HPA, PDB, ExternalSecret, ALB Ingress |
 | worker | Deployment | 8001 | `/health`, `/ready` | ServiceMonitor, HPA, PDB, ExternalSecret |
 | frontend | Deployment | 8080 (Service 80) | `/` | HPA, PDB, ALB Ingress |
 
-The canary strategy steps and Prometheus analysis are Phase 8. Phase 4 uses a
-`canary` strategy with no steps, which Argo Rollouts treats as a basic rolling
-update; the pinned v1.7.2 CRD does not support `spec.strategy.rollingUpdate`.
-See ADR-018.
+The API Rollout declares `setWeight` steps of 10, 25, 50 and 100 with a 30-second
+pause after each. There is no traffic router, so Argo Rollouts approximates each
+weight with replica counts; four API replicas make one and two canary pods
+correspond to 25% and 50%. Two Prometheus `AnalysisTemplate`s start with the
+canary and query only pods carrying the latest `rollouts-pod-template-hash`.
+Two failed measurements abort the rollout and return all traffic to the stable
+ReplicaSet. See ADR-026 and [docs/demo.md](demo.md).
 
 ## Image placeholder mechanism
 
@@ -147,7 +150,7 @@ resources by the labels configured in `gitops/platform/monitoring.yaml`.
 | Cluster overview | CPU, memory, node and pod health | Full |
 | Nodes and Karpenter | Node count, pending pods, CloudProvider errors, NodeClaims | Node panels full; Karpenter panels AWS-only |
 | Argo CD | Sync status, health status, sync operations | Full |
-| API RED | Rate, 5xx ratio, p95, error budget, ReplicaSet hash | Full after `make local-smoke` |
+| API RED | Rate, 5xx ratio, p95, error budget, canary/stable ReplicaSet hash, canary replica fraction | Full after `make local-smoke` |
 | Worker | Queue depth, job rate, p95 job duration, invalid JSON | Full after `make local-smoke` |
 | Kyverno | ValidatingPolicy failures, result modes, execution p95 | Full |
 
@@ -218,6 +221,25 @@ and `promtool test rules`, validates dashboard JSON, checks alert metadata and
 runbook links, and asserts that Slack stays opt-in. Runtime verification on kind
 is described in `docs/SETUP.md`.
 
+### Progressive delivery
+
+Argo CD notifications and Argo Rollouts notifications use the same delivery
+path: both post Alertmanager-format alerts to the Alertmanager Service in
+`monitoring`. Argo CD emits `ArgoCDSyncFailed` and `ArgoCDHealthDegraded`;
+Argo Rollouts emits `RolloutAborted` and `RolloutAnalysisFailed`. Alertmanager
+keeps the chart's null receiver on kind and sends to Slack only on clusters
+labelled `platformbox.io/slack-alerting: "true"`, so no webhook secret is needed
+locally. ADR-027 records the shared delivery path. The Argo CD values file is
+shared by `scripts/local-up.sh` and both Terraform environments; the Rollouts
+values live in `gitops/platform/argo-rollouts.yaml`.
+
+`bash scripts/progressive-validate.sh` substitutes the canary hash argument,
+runs `promtool check rules` on both analysis queries, checks notification config
+keys, validates the canary dashboard panels and runs `bash -n` on both demo
+scripts and checks the demo patch contracts. `bash scripts/helm-lint.sh`
+additionally renders the shared Argo CD values against charts 10.18.2 and 7.0.0
+and the Rollouts values against chart 2.38.0.
+
 ## What is not proven locally
 
 - ALB target groups, ACM certificates and ExternalDNS.
@@ -226,8 +248,12 @@ is described in `docs/SETUP.md`.
   `app-data` namespace, which only exists in the local smoke overlay.
 - Karpenter alert data and Slack webhook delivery. Both are AWS-only by design;
   the manifest shape and gating are validated offline.
-- Real canary analysis remains Phase 8. Phase 7 SLO burn alerts are validated
-  with `promtool test rules`, not by generating sustained production traffic.
+- Exact ALB traffic weights, real ALB target-group health and live Slack
+  delivery. The replica-weighted canary and Alertmanager null receiver are the
+  local substitutes (ADR-026, ADR-027).
+- Analysis queries are syntax-checked offline and the full rollback path is
+  documented in [docs/demo.md](demo.md); no sustained production traffic has
+  been generated here.
 
 ## References
 
@@ -237,3 +263,5 @@ is described in `docs/SETUP.md`.
 - [ADR-016: Local fake secret store](adr/ADR-016-local-fake-secret-store.md)
 - [ADR-017: Baseline PSS for local data](adr/ADR-017-baseline-pss-for-local-data.md)
 - [ADR-018: Canary strategy without steps](adr/ADR-018-canary-without-steps.md)
+- [ADR-026: Replica-weighted canary](adr/ADR-026-replica-weighted-canary.md)
+- [ADR-027: Argo notifications via Alertmanager](adr/ADR-027-argo-notifications-via-alertmanager.md)

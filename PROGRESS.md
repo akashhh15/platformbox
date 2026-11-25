@@ -11,8 +11,8 @@
 | 4 — Application delivery | Complete — merged and verified | Kustomize base, dev/staging/prod overlays, ApplicationSets, local data/secret substitutes; `make check` and `make local-smoke` pass; PR #8 merged |
 | 5 — CI/CD | Complete — merged and verified | 7 GitHub workflows, GitLab CI with Buildah/Trivy/Syft/Cosign/ECR OIDC, digest write-back, offline workflow validator; PR #13 merged; live pipelines are human-run |
 | 6 — DevSecOps and policy | Complete — merged and verified | Two CEL hardening policies, 35 offline policy tests, threat model, ADR-023; PR #15 merged |
-| 7 — Observability and SLOs | Complete — awaiting review | Six dashboards, SLO recording rules, ten alerts with runbooks, structured logs, worker metrics, opt-in Slack routing; static validation passes |
-| 8 — Progressive delivery | Not started | Canary, analysis, automatic rollback, demo |
+| 7 — Observability and SLOs | Complete — merged and verified | Six dashboards, SLO recording rules, ten alerts with runbooks, structured logs, worker metrics, opt-in Slack routing; PR #16 merged and `v0.7.0` tagged |
+| 8 — Progressive delivery | Implemented — awaiting review | Weighted canary steps, Prometheus analysis, automatic abort, good/bad demos, notifications, canary dashboard; PR #17 open; offline validation passes |
 | 9 — Resilience (extension) | Not started | k6, chaos, game day, backup and restore |
 | 10 — FinOps (extension) | Not started | Cost model, optional Infracost, pause and teardown |
 | 11 — Documentation and polish | Not started | Final README, architecture, demo, interview notes |
@@ -65,6 +65,8 @@ runtime is a local `kind` cluster; AWS Terraform is validated with
 | 2026-11-24 | Restrict new hardening policies to app-dev/staging/prod and defer signature admission until the GitLab OIDC subject is known | ADR-023 |
 | 2026-11-25 | Provisional 99.5% availability and 95%-under-500-ms latency SLOs with multi-window burn-rate alerts | ADR-024 |
 | 2026-11-25 | Slack routing is generated only on explicitly labelled EKS clusters; kind keeps the chart's null receiver | ADR-025 |
+| 2026-11-25 | Phase 8 uses replica-weighted canaries; ALB routing is rejected for this local-first setup | ADR-026 |
+| 2026-11-25 | Argo CD and Rollouts notifications post to Alertmanager so Slack stays opt-in on both paths | ADR-025, ADR-027 |
 
 ## Open items
 
@@ -234,6 +236,33 @@ are in [docs/SETUP.md](docs/SETUP.md).
   checklist is in `docs/SETUP.md` §8.
 - No AWS resource was created, modified or deleted. No GitHub or GitLab live
   pipeline was triggered.
+
+### 2026-11-25 — Phase 8 implemented
+
+- Extended the API Rollout with 10/25/50/100 `setWeight` steps, four 30-second
+  pauses and background analysis from step 0. Four API replicas make one and two
+  canary pods map to 25% and 50%; ADR-026 records why no traffic router is used.
+- Added `api-canary-success-rate` and `api-canary-p95-latency` AnalysisTemplates.
+  Both query only the latest pod-template hash every 30 seconds, run eight
+  measurements and abort after two failures.
+- Added notification values shared by local and Terraform bootstrap: Argo CD
+  sends sync-failed and health-degraded events to Alertmanager. The Argo Rollouts
+  chart sends rollout-aborted and analysis-run-failed events to the same
+  receiver. Slack remains opt-in through ADR-025; ADR-027 records the path.
+- Added `scripts/demo-canary-good.sh` and `scripts/demo-canary-bad.sh`, wired
+  into `make demo`. They create reviewable branches and print safe watch/traffic
+  commands; they never push, apply or touch AWS.
+- Added `docs/demo.md`, a canary/stable Grafana view, `scripts/progressive-validate.sh`,
+  and Helm value rendering checks in `scripts/helm-lint.sh`.
+- Validation: the app contract passed 204 checks; all overlays built and passed
+  kubeconform/Kyverno; Prometheus analysis queries passed `promtool check rules`;
+  dashboard JSON, notification JSON, trigger keys, demo patch contracts and shell
+  syntax passed. `scripts/helm-lint.sh` rendered both Argo CD chart versions and
+  the Rollouts chart with the Phase 8 values.
+- Runtime rollout verification on kind was not run because the Docker daemon was
+  unavailable in this environment. The good/bad walkthrough is in `docs/demo.md`.
+- No AWS resource was created, modified or deleted. PR #17 is open with
+  `@atharvvv10` requested as reviewer and `@akashhh15` assigned as merger.
 
 ### 2026-11-21 — Phase 3 implemented
 

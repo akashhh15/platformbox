@@ -435,6 +435,8 @@ These cannot be completed by the agent. Check them off as you go.
       `platformbox.io/slack-alerting: "true"` cluster label (§8, ADR-025).
 - [ ] With Docker Desktop running, verify the six dashboards, Prometheus rule
       groups, Alertmanager null receiver and a Loki query on kind (§8).
+- [ ] With Docker Desktop running, run the good and bad canary demos and capture
+      the screenshots listed in `docs/demo.md`. No AWS resources are involved.
 - [ ] Decide whether to run the optional AWS path; if yes, complete the AWS
       account, MFA and budget steps above.
 - [ ] If you deploy to EKS, register the cluster in Argo CD with the label
