@@ -18,6 +18,17 @@ images:
     newTag: dev
 
 patches:
+  # The demo scripts change the value of this patch so stable and canary series
+  # are visibly different on the API RED dashboard. The selector is untouched.
+  - target:
+      group: argoproj.io
+      version: v1alpha1
+      kind: Rollout
+      name: api
+    patch: |-
+      - op: replace
+        path: /spec/template/metadata/labels/app.kubernetes.io~1version
+        value: dev
   - target:
       group: monitoring.coreos.com
       version: v1
@@ -44,7 +55,7 @@ patches:
     patch: |-
       - op: replace
         path: /spec/replicas
-        value: 1
+        value: 4
       - op: replace
         path: /spec/template/spec/containers/0/env/2/value
         value: dev
@@ -116,10 +127,10 @@ patches:
     patch: |-
       - op: replace
         path: /spec/minReplicas
-        value: 1
+        value: 4
       - op: replace
         path: /spec/maxReplicas
-        value: 2
+        value: 8
   - target:
       group: autoscaling
       version: v2

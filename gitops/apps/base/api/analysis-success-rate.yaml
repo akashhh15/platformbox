@@ -1,0 +1,46 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: api-canary-success-rate
+  annotations:
+    checkov.io/skip1: CKV_K8S_21=namespace is assigned by the environment overlay
+  labels:
+    app.kubernetes.io/name: api
+    app.kubernetes.io/instance: platformbox
+    app.kubernetes.io/component: canary-analysis
+    app.kubernetes.io/part-of: platformbox
+spec:
+  args:
+    - name: canary-hash
+  metrics:
+    - name: success-rate
+      interval: 30s
+      count: 8
+      failureLimit: 2
+      # Deliberate /chaos/fail requests are included here: the bad-release demo
+      # relies on them to fail a canary even though the 30-day SLO excludes them.
+      successCondition: result[0] >= 0.95
+      provider:
+        prometheus:
+          address: http://monitoring-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090
+          timeout: 45
+          query: |
+            (
+              1 - (
+                sum(rate(http_requests_total{
+                  job="api",
+                  rollouts_pod_template_hash="{{args.canary-hash}}",
+                  handler!~"/metrics|/health|/ready",
+                  status="5xx"
+                }[2m]))
+                /
+                clamp_min(
+                  sum(rate(http_requests_total{
+                    job="api",
+                    rollouts_pod_template_hash="{{args.canary-hash}}",
+                    handler!~"/metrics|/health|/ready"
+                  }[2m])),
+                  1e-9
+                )
+              )
+            ) or vector(1)

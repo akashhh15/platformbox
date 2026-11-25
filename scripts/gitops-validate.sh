@@ -26,7 +26,7 @@ WORK="$(mktemp -d "${TMPDIR:-/tmp}/platformbox-gitops.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 
 # CRDs whose schemas are not part of kubeconform's bundled Kubernetes schemas.
-SKIP='Application,ApplicationSet,ValidatingPolicy,Rollout,ServiceMonitor,PrometheusRule,AlertmanagerConfig,ExternalSecret,SecretStore,ClusterSecretStore'
+SKIP='Application,ApplicationSet,ValidatingPolicy,Rollout,AnalysisTemplate,ServiceMonitor,PrometheusRule,AlertmanagerConfig,ExternalSecret,SecretStore,ClusterSecretStore'
 
 echo "==> yamllint: GitOps manifests"
 yamllint -c .yamllint.yaml gitops

@@ -24,6 +24,16 @@ images:
     newTag: local
 
 patches:
+  # Match the dev overlay's version-label contract for dashboard separation.
+  - target:
+      group: argoproj.io
+      version: v1alpha1
+      kind: Rollout
+      name: api
+    patch: |-
+      - op: replace
+        path: /spec/template/metadata/labels/app.kubernetes.io~1version
+        value: local
   - target:
       group: monitoring.coreos.com
       version: v1
@@ -68,7 +78,7 @@ patches:
     patch: |-
       - op: replace
         path: /spec/replicas
-        value: 1
+        value: 4
       - op: replace
         path: /spec/template/spec/containers/0/env/2/value
         value: local
@@ -104,10 +114,10 @@ patches:
     patch: |-
       - op: replace
         path: /spec/minReplicas
-        value: 1
+        value: 4
       - op: replace
         path: /spec/maxReplicas
-        value: 2
+        value: 8
   - target:
       group: autoscaling
       version: v2

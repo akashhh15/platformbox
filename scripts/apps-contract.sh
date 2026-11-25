@@ -105,8 +105,18 @@ for env in dev staging prod local; do
   check "$env default-deny NetworkPolicy" "$(yq ea '[select(.kind == "NetworkPolicy" and .metadata.name == "default-deny")] | length' "$render")" "1"
   check "$env NetworkPolicy count" "$(yq ea '[select(.kind == "NetworkPolicy")] | length' "$render")" "7"
 
-  # Rollout uses a step-less canary as a basic rolling update (ADR-018).
-  check "$env canary without steps" "$(yq ea '[select(.kind == "Rollout") | ((.spec.strategy.canary != null) and (.spec.strategy.canary.steps == null))] | all' "$render")" "true"
+  # Progressive delivery contract (ADR-026). Weights are declared even though
+  # a replica-weighted canary can only approximate them at runtime.
+  check "$env canary weights" "$(yq ea 'select(.kind == "Rollout") | [.spec.strategy.canary.steps[] | select(has("setWeight")) | .setWeight] | join(",")' "$render")" "10,25,50,100"
+  check "$env canary pauses" "$(yq ea 'select(.kind == "Rollout") | [.spec.strategy.canary.steps[] | select(has("pause"))] | length' "$render")" "4"
+  check "$env canary analysis success template" "$(yq ea 'select(.kind == "Rollout") | .spec.strategy.canary.analysis.templates[0].templateName' "$render")" "api-canary-success-rate"
+  check "$env canary analysis latency template" "$(yq ea 'select(.kind == "Rollout") | .spec.strategy.canary.analysis.templates[1].templateName' "$render")" "api-canary-p95-latency"
+  check "$env canary hash arg" "$(yq ea 'select(.kind == "Rollout") | .spec.strategy.canary.analysis.args[0].valueFrom.podTemplateHashValue' "$render")" "Latest"
+  check "$env analysis template count" "$(yq ea '[select(.kind == "AnalysisTemplate")] | length' "$render")" "2"
+  check "$env analysis measurement settings" "$(yq ea 'select(.kind == "AnalysisTemplate") | .spec.metrics[0] | [.interval, .count, .failureLimit] | join(":")' "$render" | grep -v '^---$' | sort -u | tr '\n' ',')" "30s:8:2,"
+  check "$env analysis hash queries" "$(yq ea 'select(.kind == "AnalysisTemplate") | .spec.metrics[0].provider.prometheus.query' "$render" | grep -c '{{args.canary-hash}}' || true)" "3"
+  check "$env api replicas" "$(yq ea 'select(.kind == "Rollout" and .metadata.name == "api") | .spec.replicas' "$render")" "4"
+  check "$env api HPA floor" "$(yq ea 'select(.kind == "HorizontalPodAutoscaler" and .metadata.name == "api") | .spec.minReplicas' "$render")" "4"
 
   # Documented substitutions: store, ingress class, images and chaos toggle.
   check "$env ExternalSecret count" "$(yq ea '[select(.kind == "ExternalSecret")] | length' "$render")" "2"

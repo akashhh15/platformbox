@@ -1,0 +1,36 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: api-canary-p95-latency
+  annotations:
+    checkov.io/skip1: CKV_K8S_21=namespace is assigned by the environment overlay
+  labels:
+    app.kubernetes.io/name: api
+    app.kubernetes.io/instance: platformbox
+    app.kubernetes.io/component: canary-analysis
+    app.kubernetes.io/part-of: platformbox
+spec:
+  args:
+    - name: canary-hash
+  metrics:
+    - name: p95-latency-seconds
+      interval: 30s
+      count: 8
+      failureLimit: 2
+      # Provisional 0.5s target matches docs/adr/ADR-024-slo-targets-and-burn-rate-alerts.md.
+      successCondition: result[0] <= 0.5
+      provider:
+        prometheus:
+          address: http://monitoring-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090
+          timeout: 45
+          query: |
+            histogram_quantile(
+              0.95,
+              sum by (le) (
+                rate(http_request_duration_seconds_bucket{
+                  job="api",
+                  rollouts_pod_template_hash="{{args.canary-hash}}",
+                  handler!~"/metrics|/health|/ready"
+                }[2m])
+              )
+            ) or vector(0)
