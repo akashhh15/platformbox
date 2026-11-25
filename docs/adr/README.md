@@ -34,5 +34,9 @@ one with a new ADR instead of rewriting history.
 | [ADR-024](ADR-024-slo-targets-and-burn-rate-alerts.md) | Provisional API SLOs with multi-window burn-rate alerts | Accepted |
 | [ADR-025](ADR-025-opt-in-slack-alert-routing.md) | Opt-in Slack alert routing with a null fallback | Accepted |
 | [ADR-026](ADR-026-replica-weighted-canary.md) | Replica-weighted canary for Phase 8 | Accepted |
+| [ADR-027](ADR-027-argo-notifications-via-alertmanager.md) | Argo notifications via Alertmanager | Accepted |
+| [ADR-028](ADR-028-chaos-mesh-opt-in.md) | Opt-in Chaos Mesh with a kind node-stop substitute | Accepted |
+| [ADR-029](ADR-029-backup-boundary.md) | Backup boundary for Phase 9 | Accepted |
+| [ADR-030](ADR-030-k6-profiles-and-thresholds.md) | k6 profiles and provisional thresholds | Accepted |
 
 Use [template.md](template.md) for a new ADR.
