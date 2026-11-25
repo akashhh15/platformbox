@@ -1,0 +1,31 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: api-to-postgres-latency-dev
+  namespace: app-dev
+  labels:
+    app.kubernetes.io/name: api
+    platformbox.io/chaos: opt-in
+spec:
+  action: delay
+  mode: all
+  duration: 2m
+  # direction is set explicitly because Chaos Mesh documentation disagrees on
+  # the default. This delays API pod traffic to the local PostgreSQL pods.
+  direction: to
+  selector:
+    namespaces:
+      - app-dev
+    labelSelectors:
+      app.kubernetes.io/name: api
+  target:
+    mode: all
+    selector:
+      namespaces:
+        - app-data
+      labelSelectors:
+        app.kubernetes.io/name: postgres
+  delay:
+    latency: 300ms
+    correlation: "100"
+    jitter: 50ms

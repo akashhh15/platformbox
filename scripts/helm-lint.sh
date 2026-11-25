@@ -33,6 +33,7 @@ declare -A REPOS=(
   [prom]=https://prometheus-community.github.io/helm-charts
   [grafana]=https://grafana.github.io/helm-charts
   [external-secrets]=https://charts.external-secrets.io
+  [chaos-mesh]=https://charts.chaos-mesh.org
 )
 for alias in "${!REPOS[@]}"; do
   "$HELM" repo add "$alias" "${REPOS[$alias]}" --force-update >/dev/null
@@ -48,6 +49,7 @@ CHARTS=(
   "prom/kube-prometheus-stack:65.8.1"
   "grafana/loki-stack:2.10.2"
   "external-secrets/external-secrets:2.15.0"
+  "chaos-mesh/chaos-mesh:2.8.8"
 )
 
 for entry in "${CHARTS[@]}"; do
@@ -85,5 +87,14 @@ yq e '.spec.source.helm.values' gitops/platform/argo-rollouts.yaml \
   >"$VALUES_WORK/rollouts-values.yaml"
 "$HELM" template argo-rollouts "$VALUES_WORK/argo-rollouts-2.38.0" \
   --values "$VALUES_WORK/rollouts-values.yaml" >/dev/null
+
+echo "==> Helm values used by Phase 9 Chaos Mesh configuration"
+"$HELM" pull chaos-mesh/chaos-mesh --version 2.8.8 --destination "$VALUES_WORK" >/dev/null
+mkdir -p "$VALUES_WORK/chaos-mesh-2.8.8"
+tar -xzf "$VALUES_WORK/chaos-mesh-2.8.8.tgz" -C "$VALUES_WORK/chaos-mesh-2.8.8" --strip-components=1
+yq e '.spec.template.spec.source.helm.values' \
+  gitops/platform/chaos-mesh-applicationset.yaml >"$VALUES_WORK/chaos-values.yaml"
+"$HELM" template chaos-mesh "$VALUES_WORK/chaos-mesh-2.8.8" \
+  --values "$VALUES_WORK/chaos-values.yaml" >/dev/null
 
 echo "==> Shared Helm values render with all pinned chart versions."

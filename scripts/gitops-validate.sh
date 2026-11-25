@@ -109,3 +109,6 @@ bash "$ROOT/scripts/observability-validate.sh"
 
 echo
 bash "$ROOT/scripts/progressive-validate.sh"
+
+echo
+bash "$ROOT/scripts/resilience-validate.sh"

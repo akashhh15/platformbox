@@ -20,7 +20,8 @@ export PATH := $(CURDIR)/$(VENV_BIN):$(CURDIR)/$(TOOLS_BIN):$(PATH)
 
 .PHONY: help tools tools-check pre-commit-install fmt lint validate scan test check \
         terraform-test contract workflows-validate policy-test local-up local-down up down demo \
-        gitops-validate observability-validate local-smoke aws-plan aws-apply clean
+        gitops-validate observability-validate resilience-validate loadtest \
+        local-smoke aws-plan aws-apply clean
 
 ##@ General
 
@@ -117,6 +118,17 @@ gitops-validate: ## Render and validate every Kustomize overlay and Helm chart
 
 observability-validate: ## Check Prometheus rules, dashboards and alert runbooks
 	@bash scripts/observability-validate.sh
+
+resilience-validate: ## Check load profiles, chaos manifests and recovery docs
+	@bash scripts/resilience-validate.sh
+
+loadtest: ## Run a k6 scenario (SCENARIO=smoke|load|spike; BASE_URL optional)
+	@case "$(SCENARIO)" in \
+		''|smoke|load|spike) ;; \
+		*) echo "ERROR: SCENARIO must be 'smoke', 'load' or 'spike'." >&2; exit 1;; \
+	esac
+	@command -v k6 >/dev/null 2>&1 || { echo "ERROR: k6 is not installed. Run 'make tools'." >&2; exit 1; }
+	@BASE_URL="$(BASE_URL)" k6 run "loadtest/$(or $(SCENARIO),smoke).js"
 
 policy-test: ## Run Kyverno unit tests against compliant and violating pods
 	@bash scripts/policy-test.sh

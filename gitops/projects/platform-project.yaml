@@ -13,6 +13,7 @@ spec:
     - https://prometheus-community.github.io/helm-charts
     - https://grafana.github.io/helm-charts
     - https://charts.external-secrets.io
+    - https://charts.chaos-mesh.org
   destinations:
     - namespace: "*"
       server: https://kubernetes.default.svc

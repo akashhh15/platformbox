@@ -135,6 +135,7 @@ module "rds" {
   node_security_group_id = module.eks.node_security_group_id
   instance_class         = "db.t4g.small"
   allocated_storage      = 50
+  multi_az               = true
   tags                   = var.tags
 }
 

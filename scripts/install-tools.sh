@@ -188,6 +188,19 @@ if need shellcheck; then
   copy_first_exe shellcheck shellcheck.exe
 fi
 
+if need k6; then
+  fetch "https://github.com/grafana/k6/releases/download/v${K6_VERSION}/k6-v${K6_VERSION}-checksums.txt" k6-checksums.txt
+  fetch "https://github.com/grafana/k6/releases/download/v${K6_VERSION}/k6-v${K6_VERSION}-windows-amd64.zip" k6.zip
+  expected="$(awk -v asset="k6-v${K6_VERSION}-windows-amd64.zip" '$2 == asset { print $1 }' "$TMP/k6-checksums.txt")"
+  if [ -z "$expected" ]; then
+    echo "ERROR: k6 checksum not found in the published checksums file." >&2
+    exit 1
+  fi
+  printf '%s  %s\n' "$expected" "$TMP/k6.zip" | sha256sum -c -
+  extract k6.zip k6
+  copy_first_exe k6 k6.exe
+fi
+
 echo "==> Installing Python tooling into .venv"
 
 if [ ! -x "$ROOT/.venv/Scripts/python.exe" ]; then
