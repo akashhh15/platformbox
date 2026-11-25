@@ -1,0 +1,69 @@
+# Argo CD notification events are sent to Alertmanager, not directly to Slack.
+# Alertmanager keeps the chart's null receiver on kind and routes to Slack only
+# on clusters labelled platformbox.io/slack-alerting=true (ADR-025). This values
+# file is shared by scripts/local-up.sh and the dev/prod Helm releases so the
+# local and AWS paths cannot drift.
+notifications:
+  notifiers:
+    service.webhook.alertmanager: |
+      url: http://monitoring-kube-prometheus-alertmanager.monitoring.svc.cluster.local:9093
+      headers:
+        - name: Content-Type
+          value: application/json
+
+  templates:
+    template.platformbox-sync-failed: |
+      webhook:
+        alertmanager:
+          method: POST
+          path: /api/v2/alerts
+          body: |
+            [{
+              "labels": {
+                "alertname": "ArgoCDSyncFailed",
+                "application": "{{ .app.metadata.name }}",
+                "namespace": "{{ .app.metadata.namespace }}",
+                "severity": "critical"
+              },
+              "annotations": {
+                "summary": "Argo CD sync failed for {{ .app.metadata.name }}",
+                "description": "Sync phase {{ .app.status?.operationState.phase }}. Check the Application status.",
+                "runbook": "https://github.com/akashhh15/platformbox/blob/main/docs/runbooks/argocd-app-unhealthy.md"
+              }
+            }]
+    template.platformbox-health-degraded: |
+      webhook:
+        alertmanager:
+          method: POST
+          path: /api/v2/alerts
+          body: |
+            [{
+              "labels": {
+                "alertname": "ArgoCDHealthDegraded",
+                "application": "{{ .app.metadata.name }}",
+                "namespace": "{{ .app.metadata.namespace }}",
+                "severity": "warning"
+              },
+              "annotations": {
+                "summary": "Argo CD Application {{ .app.metadata.name }} is degraded",
+                "description": "Health status is {{ .app.status.health.status }}. Check the failing resource.",
+                "runbook": "https://github.com/akashhh15/platformbox/blob/main/docs/runbooks/argocd-app-unhealthy.md"
+              }
+            }]
+
+  triggers:
+    trigger.platformbox-sync-failed: |
+      - when: app.status?.operationState.phase in ['Error', 'Failed']
+        oncePer: app.status?.operationState.finishedAt
+        send: [platformbox-sync-failed]
+    trigger.platformbox-health-degraded: |
+      - when: app.status.health.status == 'Degraded'
+        oncePer: app.status.health.status
+        send: [platformbox-health-degraded]
+
+  subscriptions:
+    - recipients:
+        - alertmanager
+      triggers:
+        - platformbox-sync-failed
+        - platformbox-health-degraded

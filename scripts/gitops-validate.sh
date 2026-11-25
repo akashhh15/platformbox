@@ -106,3 +106,6 @@ check_pods local-data "$WORK/local-data-pods.yaml"
 echo "==> All GitOps manifests valid."
 
 bash "$ROOT/scripts/observability-validate.sh"
+
+echo
+bash "$ROOT/scripts/progressive-validate.sh"

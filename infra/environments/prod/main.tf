@@ -177,6 +177,9 @@ resource "helm_release" "argocd" {
   namespace        = "argocd"
   create_namespace = true
   version          = "7.0.0"
+  values = [
+    file("${path.module}/../../../gitops/bootstrap/argocd-notifications-values.yaml"),
+  ]
 
   set {
     name  = "server.service.type"

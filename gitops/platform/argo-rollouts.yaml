@@ -20,6 +20,70 @@ spec:
         controller:
           metrics:
             enabled: true
+        # Rollout notifications go to Alertmanager, which keeps the chart's null
+        # receiver locally and routes to Slack only on opted-in EKS clusters.
+        # See ADR-025 and docs/demo.md.
+        notifications:
+          notifiers:
+            service.webhook.alertmanager: |
+              url: http://monitoring-kube-prometheus-alertmanager.monitoring.svc.cluster.local:9093
+              headers:
+                - name: Content-Type
+                  value: application/json
+          templates:
+            template.rollout-aborted: |
+              message: Rollout {{.rollout.metadata.name}} has been aborted.
+              webhook:
+                alertmanager:
+                  method: POST
+                  path: /api/v2/alerts
+                  body: |
+                    [{
+                      "labels": {
+                        "alertname": "RolloutAborted",
+                        "rollout": "{{.rollout.metadata.name}}",
+                        "namespace": "{{.rollout.metadata.namespace}}",
+                        "severity": "critical"
+                      },
+                      "annotations": {
+                        "summary": "Rollout {{.rollout.metadata.name}} was aborted",
+                        "description": "Analysis failed; Argo Rollouts restored the stable ReplicaSet.",
+                        "runbook": "https://github.com/akashhh15/platformbox/blob/main/docs/runbooks/rollout-aborted.md"
+                      }
+                    }]
+            template.analysis-run-failed: |
+              message: Analysis run for Rollout {{.rollout.metadata.name}} failed.
+              webhook:
+                alertmanager:
+                  method: POST
+                  path: /api/v2/alerts
+                  body: |
+                    [{
+                      "labels": {
+                        "alertname": "RolloutAnalysisFailed",
+                        "rollout": "{{.rollout.metadata.name}}",
+                        "namespace": "{{.rollout.metadata.namespace}}",
+                        "severity": "warning"
+                      },
+                      "annotations": {
+                        "summary": "Analysis failed for Rollout {{.rollout.metadata.name}}",
+                        "description": "Check the AnalysisRun measurements and canary queries.",
+                        "runbook": "https://github.com/akashhh15/platformbox/blob/main/docs/runbooks/rollout-aborted.md"
+                      }
+                    }]
+          # Built-in trigger names still need a ConfigMap entry; the Helm chart
+          # does not ship notifications-install.yaml (verified by helm template).
+          triggers:
+            trigger.on-rollout-aborted: |
+              - send: [rollout-aborted]
+            trigger.on-analysis-run-failed: |
+              - send: [analysis-run-failed]
+          subscriptions:
+            - recipients:
+                - alertmanager
+              triggers:
+                - on-rollout-aborted
+                - on-analysis-run-failed
   destination:
     server: https://kubernetes.default.svc
     namespace: argo-rollouts
