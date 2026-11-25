@@ -35,7 +35,7 @@ service.
 | Terraform | 1.17.2 | AWS production path, validation and mock tests |
 | tflint, terraform-docs, checkov, trivy | See [VERSIONS.md](VERSIONS.md) | IaC quality and security |
 | gitleaks, hadolint, yamllint, ruff | See [VERSIONS.md](VERSIONS.md) | Secret, Dockerfile, YAML and Python quality |
-| kubeconform, actionlint | See [VERSIONS.md](VERSIONS.md) | Manifest and workflow validation |
+| kubeconform, actionlint, promtool | See [VERSIONS.md](VERSIONS.md) | Manifest, workflow and Prometheus rule validation |
 | jq, yq, shellcheck | See [VERSIONS.md](VERSIONS.md) | Scripting helpers |
 
 Exact pinned versions and sources are in [VERSIONS.md](VERSIONS.md). Do not
@@ -101,8 +101,10 @@ documented substitutions differ (ADR-020). `make lint` includes
 `workflows-validate`, which runs `actionlint` and the offline GitLab CI
 contract checks. `make test` includes `policy-test`, which runs `kyverno test`
 against compliant, violating and out-of-scope pods for all seven admission
-policies. Targets for later phases print a clear "not implemented until
-Phase N" message and exit 0.
+policies. `make validate` also calls `observability-validate`, which runs
+`promtool check rules`, `promtool test rules`, dashboard JSON checks, alert
+metadata checks and runbook-link checks. Targets for later phases print a clear
+"not implemented until Phase N" message and exit 0.
 
 ## 4. Local quickstart
 
@@ -332,21 +334,62 @@ GitHub Actions or GitLab CI. Run the following checks yourself.
    credentials` and that no `AWS_ACCESS_KEY_ID` or `AWS_SECRET_ACCESS_KEY`
    CI variable exists.
 
-## 8. Slack alerts (enabled)
+## 8. Observability and alert verification
 
-Slack is optional at runtime but supported by design. The Alertmanager
-configuration uses a null receiver when no webhook is configured, so the
-platform works without Slack.
+Phase 7 resources are validated statically by:
 
-To enable Slack:
+```bash
+make observability-validate
+```
+
+That target extracts the `PrometheusRule.spec` into a temporary plain rules
+file before calling `promtool`, validates six dashboard JSON files and their
+Grafana UIDs, checks that all ten alerts carry severity/summary/description/
+runbook metadata, confirms each runbook exists, and asserts that Slack resources
+are not generated in the default platform render. No cluster or cloud API is
+used.
+
+With `make local-up` and `make local-smoke` already running, verify the runtime
+path yourself:
+
+1. Open Grafana with the port-forward in section 4. Confirm these dashboards
+   appear: **PlatformBox / Cluster overview**, **Nodes and Karpenter**, **Argo
+   CD**, **API RED metrics**, **Worker queue and latency**, and **Kyverno policy
+   results**. Karpenter panels are expected to be empty on kind.
+2. Open Prometheus at `kubectl -n monitoring port-forward
+   svc/monitoring-kube-prometheus-prometheus 9090:9090`, then visit
+   `http://localhost:9090/rules`. All `platformbox-*` groups should show as
+   loaded. Query
+   `platformbox:slo:api_availability:error_budget_remaining_ratio` after some
+   app traffic to see the 30-day budget gauge.
+3. Open Alertmanager at `kubectl -n monitoring port-forward
+   svc/monitoring-kube-prometheus-alertmanager 9093:9093`. On kind the default
+   receiver is `null`; no Slack Secret is required.
+4. Select the `loki` datasource in Grafana Explore and run a query from
+   [docs/log-queries.md](log-queries.md), for example
+   `{namespace="app-dev", app="api", level="ERROR"}`. Structured fields
+   `service`, `environment`, `version` and `level` are promoted by Promtail.
+5. Send a test alert only on a cluster where Slack is deliberately enabled.
+
+### Slack alerts (opt-in on EKS)
+
+The chart's default Alertmanager config has a `null` receiver, so the local
+demo works without Slack. Slack routing is generated only for registered EKS
+cluster Secrets labelled `platformbox.io/target: eks` **and**
+`platformbox.io/slack-alerting: "true"`. This avoids a missing-Secret failure
+during Alertmanager config generation on kind; see ADR-025.
+
+To enable Slack on EKS:
 
 1. Create an incoming webhook in your Slack workspace.
-2. Store the URL in a secret, never in Git:
-   - Local path: a Kubernetes Secret in the `monitoring` namespace, created
-     from your shell.
-   - AWS path: AWS Secrets Manager, synchronized by External Secrets Operator.
-3. Set the webhook secret name in the monitoring values in Phase 7.
-4. Verify with a test alert in Phase 7.
+2. Create the AWS Secrets Manager secret `platformbox/alertmanager` with the
+   JSON property `webhook_url`. The External Secrets Operator reads it through
+   the EKS-gated `aws-secretsmanager` ClusterSecretStore.
+3. Add `platformbox.io/slack-alerting: "true"` to that cluster's Argo CD
+   cluster Secret, in addition to `platformbox.io/target: eks`.
+4. Wait for the `alertmanager-slack` Application to sync, then check the
+   generated Secret in the `monitoring` namespace and send a test alert.
+   Never put the webhook URL in Git or in a Helm value.
 
 ## 9. Optional AWS production path (costs money)
 
@@ -387,7 +430,11 @@ These cannot be completed by the agent. Check them off as you go.
       exact repository/project, branch and environment restrictions.
 - [ ] Run the GitHub and GitLab pipeline tests in section 7. Do not approve
       `terraform-apply` unless you intend to create AWS resources.
-- [ ] Supply the Slack webhook when Phase 7 starts.
+- [ ] If Slack is wanted on EKS, create the AWS Secrets Manager secret
+      `platformbox/alertmanager` with property `webhook_url` and add the
+      `platformbox.io/slack-alerting: "true"` cluster label (§8, ADR-025).
+- [ ] With Docker Desktop running, verify the six dashboards, Prometheus rule
+      groups, Alertmanager null receiver and a Loki query on kind (§8).
 - [ ] Decide whether to run the optional AWS path; if yes, complete the AWS
       account, MFA and budget steps above.
 - [ ] If you deploy to EKS, register the cluster in Argo CD with the label

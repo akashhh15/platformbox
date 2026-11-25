@@ -5,7 +5,9 @@ choice, the date it was verified and the source. Update it in the same commit
 as the version change.
 
 Verification date for this table: **2026-11-22**. Earlier entries were verified
-on 2026-11-21; the Phase 4 additions below were verified on 2026-11-22.
+on 2026-11-21; the Phase 4 additions below were verified on 2026-11-22. Phase 7
+interface checks were verified again on **2026-11-25**; see the Phase 7 section
+below.
 
 ## Local toolchain
 
@@ -41,6 +43,19 @@ on 2026-11-21; the Phase 4 additions below were verified on 2026-11-22.
 | shellcheck | 0.11.0 | Pinned | `koalaman/shellcheck` GitHub release |
 | Docker CLI | 29.9.3 | Verified client version | Local Docker Desktop installation |
 | AWS CLI | 2.42.1 | Pinned | `awscli.amazonaws.com`, SHA-256 recorded in the Phase 5 CI pins |
+
+The Phase 7 Prometheus release archive was checksum-verified locally on
+2026-11-25 before `promtool` was extracted:
+
+| File | Version | SHA-256 |
+|---|---|---|
+| `prometheus-3.16.0.windows-amd64.zip` | 3.16.0 | `89c03c2f24400fb58668440b6d7226f68564acda27d657e77acfbda42be32cb3` |
+| extracted `promtool.exe` | 3.16.0 | `b18a0f297fd3350a104cfcb9745c9e7f3b71cc6474875159fd56195a8289c570` |
+
+`promtool --version` reported `promtool, version 3.16.0 (branch: HEAD, revision:
+e2e28adeee2c5883d000fc82aca6008cfbf7e96d)`. The Prometheus server rendered by
+kube-prometheus-stack 65.8.1 is 2.55.0, so Phase 7 rules intentionally use only
+PromQL syntax available in 2.55 even though the offline checker is newer.
 
 ## Pre-commit hooks
 
@@ -163,12 +178,33 @@ SHA form, never the tag.
 | `kubeconform-linux-amd64.tar.gz` | 0.8.0 | `9bc2bffbf71f261128533edaf912153948b7ff238f9a531ae6d34466ec287883` |
 | `kyverno-cli_v1.20.0_linux_x86_64.tar.gz` | 1.20.0 | `06b8f3ca7b5626473be8fb4d343ad54ab84e317142766f72420e7d44b80942e2` |
 | `awscli-exe-linux-x86_64-2.42.1.zip` | 2.42.1 | `ff2631c32c5db291b099600f404bc493454ec66c125ff4604625da90480c1f47` |
+| `prometheus-3.16.0.linux-amd64.tar.gz` | 3.16.0 | `68727009472a2c02e1ff7f062fd5b3e637285bffc8fc2d340c76fb449d6e0f34` |
 | `cosign-linux-amd64` | 3.1.4 | `424e2c97d0b45fd7a6b608a87f090f35633f4c23ece5f092d48bba11aaf4bbfa` |
 | `hadolint-linux-x86_64` | 2.15.1 | `c7187db94eeeeca956519a6af171adc31453941a1e777961f6e680f697c8c507` |
 | `syft_1.57.2_linux_amd64.tar.gz` | 1.57.2 | `ad92bd3ec1b94a3df01d4d0aec199afa9c42b72e86da436ff5f837914d32706b` |
 
 Kaniko was rejected because its upstream repository is archived; see
 [ADR-021](adr/ADR-021-buildah-over-kaniko.md).
+
+## Phase 7 interface verification
+
+These facts were checked against the pinned charts and rendered templates on
+2026-11-25. No chart version changed in Phase 7.
+
+| Component | Verified interface | Evidence |
+|---|---|---|
+| kube-prometheus-stack 65.8.1 | Grafana dashboard sidecar enabled by default with label `grafana_dashboard: "1"`, value `"1"`, `searchNamespace: ALL`; datasource uid `prometheus` | `helm template` of the pinned chart |
+| kube-prometheus-stack 65.8.1 | Default Alertmanager config has receiver `null` | `helm template` of the pinned chart |
+| loki-stack 2.10.2 | Datasource ConfigMap is labelled `grafana_datasource: "1"` with uid `loki` | `helm template` of the pinned chart |
+| Argo CD chart 10.18.2 | `controller.metrics.enabled=true` renders Service `argocd-application-controller-metrics`, port `http-metrics`/8082; chart default is false | `helm template` of the pinned chart |
+| Argo Rollouts chart 2.38.0 | `controller.metrics.enabled=true` renders Service `argo-rollouts-metrics`, port `metrics`/8090; chart default is false | `helm template` of the pinned chart |
+| Karpenter chart 1.0.0 | `serviceMonitor.enabled=true` and `serviceMonitor.additionalLabels.release=monitoring` are supported | Pulled chart `values.yaml` |
+| Argo Rollouts v1.7.2 | Abort phase is `Abort`, not `Aborting`; metrics include `rollout_info`, `rollout_reconcile_error`, `rollout_reconcile` and `rollout_events_total` | Rendered chart and versioned metric names |
+| Kyverno v1.20 | `kyverno_validating_policy_results_total` has labels including `policy_validation_mode`, `policy_name`, `resource_namespace` and `result` | Pulled chart metric definition |
+
+The Prometheus Operator ignores the `Optional` flag on an AlertmanagerConfig
+`apiURL` Secret; that is why Slack routing is gated by cluster label rather than
+deployed with a placeholder secret (ADR-025).
 
 ## Platform versions to pin in later phases
 

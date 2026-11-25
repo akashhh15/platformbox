@@ -31,5 +31,7 @@ one with a new ADR instead of rewriting history.
 | [ADR-021](ADR-021-buildah-over-kaniko.md) | Buildah over Kaniko and Docker daemon builds in GitLab CI | Accepted |
 | [ADR-022](ADR-022-ci-trust-boundaries-and-offline-validation.md) | CI trust boundaries, digest-based signing and offline workflow validation | Accepted |
 | [ADR-023](ADR-023-policy-scope-and-deferred-signature-admission.md) | Application-only hardening scope and deferred signature admission | Accepted |
+| [ADR-024](ADR-024-slo-targets-and-burn-rate-alerts.md) | Provisional API SLOs with multi-window burn-rate alerts | Accepted |
+| [ADR-025](ADR-025-opt-in-slack-alert-routing.md) | Opt-in Slack alert routing with a null fallback | Accepted |
 
 Use [template.md](template.md) for a new ADR.
