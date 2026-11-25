@@ -1,0 +1,82 @@
+{
+  "uid": "platformbox-nodes",
+  "title": "PlatformBox / Nodes and Karpenter",
+  "tags": ["platformbox", "nodes", "karpenter"],
+  "timezone": "utc",
+  "schemaVersion": 39,
+  "refresh": "30s",
+  "time": {"from": "now-6h", "to": "now"},
+  "panels": [
+    {
+      "id": 1,
+      "title": "Karpenter is AWS-only",
+      "type": "text",
+      "gridPos": {"h": 4, "w": 24, "x": 0, "y": 0},
+      "options": {
+        "mode": "markdown",
+        "content": "Karpenter metrics are unavailable on the local kind cluster (ADR-004). Node panels still work; Karpenter panels remain empty locally by design."
+      }
+    },
+    {
+      "id": 2,
+      "title": "Cluster node count",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "karpenter_cluster_state_node_count",
+          "legendFormat": "Karpenter nodes"
+        },
+        {
+          "refId": "B",
+          "expr": "count(kube_node_status_condition{condition=\"Ready\", status=\"true\"})",
+          "legendFormat": "Ready nodes (all clusters)"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Pending pods by NodePool",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (nodepool) (karpenter_pods_state{phase=\"Pending\"})",
+          "legendFormat": "{{nodepool}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "CloudProvider errors",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (provider) (rate(karpenter_cloudprovider_errors_total[5m]))",
+          "legendFormat": "{{provider}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "NodeClaims created in 1h",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (nodepool, capacity_type) (increase(karpenter_nodeclaims_created_total[1h]))",
+          "legendFormat": "{{nodepool}} / {{capacity_type}}"
+        }
+      ]
+    }
+  ]
+}

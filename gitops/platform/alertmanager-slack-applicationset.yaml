@@ -1,0 +1,42 @@
+# Slack routing is opt-in. The cluster generator only matches registered EKS
+# cluster Secrets that carry both the target label and an explicit Slack
+# label, so the local kind cluster keeps the chart's null receiver.
+# See docs/SETUP.md for the AWS Secrets Manager key and the cluster labels.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: alertmanager-slack
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            argocd.argoproj.io/secret-type: cluster
+            platformbox.io/target: eks
+            platformbox.io/slack-alerting: "true"
+  template:
+    metadata:
+      name: '{{.nameNormalized}}-alertmanager-slack'
+      namespace: argocd
+      annotations:
+        argocd.argoproj.io/sync-wave: "7"
+    spec:
+      project: platform
+      source:
+        repoURL: https://github.com/akashhh15/platformbox.git
+        targetRevision: main
+        path: gitops/platform/alertmanager-slack
+      destination:
+        server: '{{.server}}'
+        namespace: monitoring
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - ClientSideApplyMigration=false

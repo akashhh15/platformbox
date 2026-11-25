@@ -1,0 +1,95 @@
+{
+  "uid": "platformbox-api-red",
+  "title": "PlatformBox / API RED metrics",
+  "tags": ["platformbox", "api", "slo"],
+  "timezone": "utc",
+  "schemaVersion": 39,
+  "refresh": "30s",
+  "time": {"from": "now-6h", "to": "now"},
+  "panels": [
+    {
+      "id": 1,
+      "title": "Request rate by version",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (app_kubernetes_io_version) (rate(http_requests_total{job=\"api\", handler!~\"/metrics|/health|/ready|/chaos/fail\"}[5m]))",
+          "legendFormat": "v{{app_kubernetes_io_version}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "5xx ratio by version",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (app_kubernetes_io_version) (rate(http_requests_total{job=\"api\", status=\"5xx\", handler!~\"/metrics|/health|/ready|/chaos/fail\"}[5m])) / clamp_min(sum by (app_kubernetes_io_version) (rate(http_requests_total{job=\"api\", handler!~\"/metrics|/health|/ready|/chaos/fail\"}[5m])), 1e-9)",
+          "legendFormat": "v{{app_kubernetes_io_version}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "p95 request duration by version",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le, app_kubernetes_io_version) (rate(http_request_duration_highr_seconds_bucket{job=\"api\"}[5m])))",
+          "legendFormat": "v{{app_kubernetes_io_version}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Request rate by ReplicaSet hash",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (rollouts_pod_template_hash) (rate(http_requests_total{job=\"api\"}[5m]))",
+          "legendFormat": "hash {{rollouts_pod_template_hash}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Availability error budget remaining",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "platformbox:slo:api_availability:error_budget_remaining_ratio",
+          "legendFormat": "{{namespace}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Latency error budget remaining",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "platformbox:slo:api_latency:error_budget_remaining_ratio",
+          "legendFormat": "{{namespace}}"
+        }
+      ]
+    }
+  ]
+}

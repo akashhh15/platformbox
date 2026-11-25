@@ -258,4 +258,15 @@ resource "helm_release" "karpenter" {
     name  = "settings.interruptionQueue"
     value = aws_sqs_queue.interruption.name
   }
+
+  # The Phase 7 Prometheus instance selects ServiceMonitors with this label.
+  set {
+    name  = "serviceMonitor.enabled"
+    value = "true"
+  }
+
+  set {
+    name  = "serviceMonitor.additionalLabels.release"
+    value = "monitoring"
+  }
 }

@@ -16,6 +16,9 @@ spec:
   namespaceSelector:
     matchNames:
       - app-dev
+  # Surface the pod version on scrape targets for Grafana dashboards.
+  podTargetLabels:
+    - app.kubernetes.io/version
   endpoints:
     - port: http
       path: /metrics

@@ -1,0 +1,67 @@
+# Prometheus Operator only selects ServiceMonitors labelled release=monitoring.
+# The monitored Services live in their own namespaces, so each monitor uses an
+# explicit namespaceSelector rather than a wildcard.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: argocd-application-controller
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: argocd-application-controller
+    app.kubernetes.io/part-of: platformbox
+    release: monitoring
+spec:
+  namespaceSelector:
+    matchNames:
+      - argocd
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: argocd-metrics
+      app.kubernetes.io/instance: argocd
+  endpoints:
+    - port: http-metrics
+      path: /metrics
+      interval: 30s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: argo-rollouts-controller
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: argo-rollouts-controller
+    app.kubernetes.io/part-of: platformbox
+    release: monitoring
+spec:
+  namespaceSelector:
+    matchNames:
+      - argo-rollouts
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: argo-rollouts
+      app.kubernetes.io/component: rollouts-controller
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: kyverno-controllers
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: kyverno-controllers
+    app.kubernetes.io/part-of: platformbox
+    release: monitoring
+spec:
+  namespaceSelector:
+    matchNames:
+      - kyverno
+  selector:
+    matchLabels:
+      app.kubernetes.io/part-of: kyverno
+  endpoints:
+    - port: metrics-port
+      path: /metrics
+      interval: 30s

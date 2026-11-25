@@ -1,0 +1,416 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: platformbox-observability
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: platformbox-observability
+    app.kubernetes.io/instance: platformbox
+    app.kubernetes.io/part-of: platformbox
+    release: monitoring
+spec:
+  groups:
+    # Deliberate chaos requests and probe traffic are not user traffic. Without
+    # these exclusions, a /metrics scrape every 30s would dominate the SLO
+    # denominator and POST /chaos/fail would look like an accidental regression.
+    - name: platformbox-slo-recording
+      interval: 1m
+      rules:
+        - record: platformbox:slo:api_availability:error_ratio_rate5m
+          expr: |
+            sum by (namespace) (
+              rate(http_requests_total{
+                job="api", status="5xx",
+                handler!~"/metrics|/health|/ready|/chaos/fail"
+              }[5m])
+            )
+            /
+            clamp_min(
+              sum by (namespace) (
+                rate(http_requests_total{
+                  job="api",
+                  handler!~"/metrics|/health|/ready|/chaos/fail"
+                }[5m])
+              ),
+              1e-9
+            )
+        - record: platformbox:slo:api_availability:error_ratio_rate1h
+          expr: |
+            sum by (namespace) (
+              rate(http_requests_total{
+                job="api", status="5xx",
+                handler!~"/metrics|/health|/ready|/chaos/fail"
+              }[1h])
+            )
+            /
+            clamp_min(
+              sum by (namespace) (
+                rate(http_requests_total{
+                  job="api",
+                  handler!~"/metrics|/health|/ready|/chaos/fail"
+                }[1h])
+              ),
+              1e-9
+            )
+        - record: platformbox:slo:api_availability:error_ratio_rate30m
+          expr: |
+            sum by (namespace) (
+              rate(http_requests_total{
+                job="api", status="5xx",
+                handler!~"/metrics|/health|/ready|/chaos/fail"
+              }[30m])
+            )
+            /
+            clamp_min(
+              sum by (namespace) (
+                rate(http_requests_total{
+                  job="api",
+                  handler!~"/metrics|/health|/ready|/chaos/fail"
+                }[30m])
+              ),
+              1e-9
+            )
+        - record: platformbox:slo:api_availability:error_ratio_rate6h
+          expr: |
+            sum by (namespace) (
+              rate(http_requests_total{
+                job="api", status="5xx",
+                handler!~"/metrics|/health|/ready|/chaos/fail"
+              }[6h])
+            )
+            /
+            clamp_min(
+              sum by (namespace) (
+                rate(http_requests_total{
+                  job="api",
+                  handler!~"/metrics|/health|/ready|/chaos/fail"
+                }[6h])
+              ),
+              1e-9
+            )
+        - record: platformbox:slo:api_availability:error_ratio_rate30d
+          expr: |
+            sum by (namespace) (
+              increase(http_requests_total{
+                job="api", status="5xx",
+                handler!~"/metrics|/health|/ready|/chaos/fail"
+              }[30d])
+            )
+            /
+            clamp_min(
+              sum by (namespace) (
+                increase(http_requests_total{
+                  job="api",
+                  handler!~"/metrics|/health|/ready|/chaos/fail"
+                }[30d])
+              ),
+              1e-9
+            )
+        - record: platformbox:slo:api_availability:error_budget_remaining_ratio
+          expr: 1 - (platformbox:slo:api_availability:error_ratio_rate30d / 0.005)
+        - record: platformbox:slo:api_latency:error_ratio_rate5m
+          expr: |
+            (
+              sum by (namespace) (
+                rate(http_request_duration_seconds_count{
+                  job="api",
+                  handler!~"/metrics|/health|/ready|/chaos/fail"
+                }[5m])
+              )
+              -
+              sum by (namespace) (
+                rate(http_request_duration_seconds_bucket{
+                  job="api", le="0.5",
+                  handler!~"/metrics|/health|/ready|/chaos/fail"
+                }[5m])
+              )
+            )
+            /
+            clamp_min(
+              sum by (namespace) (
+                rate(http_request_duration_seconds_count{
+                  job="api",
+                  handler!~"/metrics|/health|/ready|/chaos/fail"
+                }[5m])
+              ),
+              1e-9
+            )
+        - record: platformbox:slo:api_latency:error_ratio_rate1h
+          expr: |
+            (
+              sum by (namespace) (
+                rate(http_request_duration_seconds_count{
+                  job="api",
+                  handler!~"/metrics|/health|/ready|/chaos/fail"
+                }[1h])
+              )
+              -
+              sum by (namespace) (
+                rate(http_request_duration_seconds_bucket{
+                  job="api", le="0.5",
+                  handler!~"/metrics|/health|/ready|/chaos/fail"
+                }[1h])
+              )
+            )
+            /
+            clamp_min(
+              sum by (namespace) (
+                rate(http_request_duration_seconds_count{
+                  job="api",
+                  handler!~"/metrics|/health|/ready|/chaos/fail"
+                }[1h])
+              ),
+              1e-9
+            )
+        - record: platformbox:slo:api_latency:error_ratio_rate30m
+          expr: |
+            (
+              sum by (namespace) (
+                rate(http_request_duration_seconds_count{
+                  job="api",
+                  handler!~"/metrics|/health|/ready|/chaos/fail"
+                }[30m])
+              )
+              -
+              sum by (namespace) (
+                rate(http_request_duration_seconds_bucket{
+                  job="api", le="0.5",
+                  handler!~"/metrics|/health|/ready|/chaos/fail"
+                }[30m])
+              )
+            )
+            /
+            clamp_min(
+              sum by (namespace) (
+                rate(http_request_duration_seconds_count{
+                  job="api",
+                  handler!~"/metrics|/health|/ready|/chaos/fail"
+                }[30m])
+              ),
+              1e-9
+            )
+        - record: platformbox:slo:api_latency:error_ratio_rate6h
+          expr: |
+            (
+              sum by (namespace) (
+                rate(http_request_duration_seconds_count{
+                  job="api",
+                  handler!~"/metrics|/health|/ready|/chaos/fail"
+                }[6h])
+              )
+              -
+              sum by (namespace) (
+                rate(http_request_duration_seconds_bucket{
+                  job="api", le="0.5",
+                  handler!~"/metrics|/health|/ready|/chaos/fail"
+                }[6h])
+              )
+            )
+            /
+            clamp_min(
+              sum by (namespace) (
+                rate(http_request_duration_seconds_count{
+                  job="api",
+                  handler!~"/metrics|/health|/ready|/chaos/fail"
+                }[6h])
+              ),
+              1e-9
+            )
+        - record: platformbox:slo:api_latency:error_ratio_rate30d
+          expr: |
+            (
+              sum by (namespace) (
+                increase(http_request_duration_seconds_count{
+                  job="api",
+                  handler!~"/metrics|/health|/ready|/chaos/fail"
+                }[30d])
+              )
+              -
+              sum by (namespace) (
+                increase(http_request_duration_seconds_bucket{
+                  job="api", le="0.5",
+                  handler!~"/metrics|/health|/ready|/chaos/fail"
+                }[30d])
+              )
+            )
+            /
+            clamp_min(
+              sum by (namespace) (
+                increase(http_request_duration_seconds_count{
+                  job="api",
+                  handler!~"/metrics|/health|/ready|/chaos/fail"
+                }[30d])
+              ),
+              1e-9
+            )
+        - record: platformbox:slo:api_latency:error_budget_remaining_ratio
+          expr: 1 - (platformbox:slo:api_latency:error_ratio_rate30d / 0.05)
+    - name: platformbox-slo-alerts
+      interval: 1m
+      rules:
+        - alert: PlatformBoxApiAvailabilityFastBurn
+          expr: |
+            platformbox:slo:api_availability:error_ratio_rate1h > (14.4 * 0.005)
+            and
+            platformbox:slo:api_availability:error_ratio_rate5m > (14.4 * 0.005)
+          for: 2m
+          labels:
+            severity: critical
+            slo: availability
+          annotations:
+            summary: API availability error budget is burning fast in {{ $labels.namespace }}
+            description: >-
+              The 5xx ratio exceeded 14.4x the 0.5% error budget over both 1h
+              and 5m. At this rate the 30-day budget is exhausted in about two
+              days.
+            runbook_url: >-
+              https://github.com/akashhh15/platformbox/blob/main/docs/runbooks/api-availability-fast-burn.md
+        - alert: PlatformBoxApiAvailabilitySlowBurn
+          expr: |
+            platformbox:slo:api_availability:error_ratio_rate6h > (6 * 0.005)
+            and
+            platformbox:slo:api_availability:error_ratio_rate30m > (6 * 0.005)
+          for: 15m
+          labels:
+            severity: warning
+            slo: availability
+          annotations:
+            summary: API availability error budget is burning slowly in {{ $labels.namespace }}
+            description: >-
+              The 5xx ratio exceeded 6x the 0.5% error budget over both 6h and
+              30m. This consumes about 5% of the 30-day budget per day.
+            runbook_url: >-
+              https://github.com/akashhh15/platformbox/blob/main/docs/runbooks/api-availability-slow-burn.md
+        - alert: PlatformBoxApiLatencyFastBurn
+          expr: |
+            platformbox:slo:api_latency:error_ratio_rate1h > (14.4 * 0.05)
+            and
+            platformbox:slo:api_latency:error_ratio_rate5m > (14.4 * 0.05)
+          for: 2m
+          labels:
+            severity: critical
+            slo: latency
+          annotations:
+            summary: API latency error budget is burning fast in {{ $labels.namespace }}
+            description: >-
+              More than 72% of requests were slower than the provisional 500 ms
+              target over both 1h and 5m (14.4x the 5% latency budget).
+            runbook_url: >-
+              https://github.com/akashhh15/platformbox/blob/main/docs/runbooks/api-latency-fast-burn.md
+        - alert: PlatformBoxApiLatencySlowBurn
+          expr: |
+            platformbox:slo:api_latency:error_ratio_rate6h > (6 * 0.05)
+            and
+            platformbox:slo:api_latency:error_ratio_rate30m > (6 * 0.05)
+          for: 15m
+          labels:
+            severity: warning
+            slo: latency
+          annotations:
+            summary: API latency error budget is burning slowly in {{ $labels.namespace }}
+            description: >-
+              More than 30% of requests were slower than the provisional 500 ms
+              target over both 6h and 30m (6x the 5% latency budget).
+            runbook_url: >-
+              https://github.com/akashhh15/platformbox/blob/main/docs/runbooks/api-latency-slow-burn.md
+    - name: platformbox-platform-alerts
+      interval: 1m
+      rules:
+        - alert: PlatformBoxPodCrashLooping
+          expr: |
+            sum by (namespace, pod, container) (
+              increase(kube_pod_container_status_restarts_total{
+                container!="", namespace!~"kube-system|local-path-storage"
+              }[15m])
+            ) > 3
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Pod {{ $labels.pod }} is crash looping in {{ $labels.namespace }}
+            description: >-
+              Container {{ $labels.container }} restarted more than three times
+              in 15 minutes.
+            runbook_url: >-
+              https://github.com/akashhh15/platformbox/blob/main/docs/runbooks/pod-crashlooping.md
+        - alert: PlatformBoxNodeNotReady
+          expr: |
+            max by (node) (
+              kube_node_status_condition{condition="Ready", status="true"}
+            ) == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: Node {{ $labels.node }} is NotReady
+            description: The node has reported Ready=false for at least five minutes.
+            runbook_url: >-
+              https://github.com/akashhh15/platformbox/blob/main/docs/runbooks/node-not-ready.md
+        - alert: PlatformBoxKarpenterProvisioningFailure
+          expr: |
+            sum by (controller, method, provider) (
+              increase(karpenter_cloudprovider_errors_total[15m])
+            ) > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Karpenter CloudProvider errors in {{ $labels.provider }}
+            description: >-
+              Karpenter returned errors from {{ $labels.method }} on
+              {{ $labels.provider }} in the last 15 minutes. This metric does
+              not exist on kind.
+            runbook_url: >-
+              https://github.com/akashhh15/platformbox/blob/main/docs/runbooks/karpenter-provisioning-failure.md
+        - alert: PlatformBoxArgoCDAppUnhealthy
+          expr: |
+            max by (name, namespace) (
+              argocd_app_info{sync_status="OutOfSync"}
+            ) == 1
+            or
+            max by (name, namespace) (
+              argocd_app_info{health_status=~"Degraded|Missing|Unknown"}
+            ) == 1
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Argo CD Application {{ $labels.name }} is out of sync or degraded
+            description: >-
+              The Application has been OutOfSync or unhealthy for at least 15
+              minutes, so Git is no longer the observed source of truth.
+            runbook_url: >-
+              https://github.com/akashhh15/platformbox/blob/main/docs/runbooks/argocd-app-unhealthy.md
+        - alert: PlatformBoxPersistentVolumeFillingUp
+          expr: |
+            kubelet_volume_stats_available_bytes
+              / clamp_min(kubelet_volume_stats_capacity_bytes, 1) < 0.1
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Volume {{ $labels.persistentvolumeclaim }} has less than 10% free
+            description: >-
+              Persistent volume {{ $labels.persistentvolumeclaim }} in
+              {{ $labels.namespace }} has been under 10% free for 10 minutes.
+            runbook_url: >-
+              https://github.com/akashhh15/platformbox/blob/main/docs/runbooks/persistent-volume-filling.md
+        - alert: PlatformBoxRolloutAborted
+          expr: |
+            sum by (name, namespace) (
+              increase(rollout_reconcile_error[10m])
+            ) > 0
+            or
+            max by (name, namespace) (
+              rollout_info{phase=~"Abort|Degraded|Error"}
+            ) == 1
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Rollout {{ $labels.name }} aborted in {{ $labels.namespace }}
+            description: >-
+              The Rollouts controller reported an error or an aborted/degraded
+              phase. Traffic should remain on the stable ReplicaSet.
+            runbook_url: >-
+              https://github.com/akashhh15/platformbox/blob/main/docs/runbooks/rollout-aborted.md

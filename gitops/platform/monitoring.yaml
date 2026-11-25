@@ -13,22 +13,93 @@ spec:
     targetRevision: 65.8.1
     helm:
       values: |
+        # Sizing is a starting point for a disposable dev cluster, not a
+        # measured recommendation. TODO(measure): replace with observed usage.
         grafana:
           enabled: true
           adminPassword: "platformbox"
+          sidecar:
+            dashboards:
+              enabled: true
+              label: grafana_dashboard
+              labelValue: "1"
+              searchNamespace: ALL
+            datasources:
+              enabled: true
+              searchNamespace: ALL
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
         prometheus:
           prometheusSpec:
-            retention: 7d
+            # The SLO error budget is defined over 30 days, so the local TSDB
+            # must retain 30 days for the recording rules to be meaningful.
+            retention: 30d
+            ruleSelector:
+              matchLabels:
+                app.kubernetes.io/part-of: platformbox
+            ruleNamespaceSelector:
+              matchNames:
+                - monitoring
             resources:
               requests:
                 cpu: 100m
                 memory: 256Mi
+              limits:
+                cpu: "1"
+                memory: 1Gi
         alertmanager:
           enabled: true
+          alertmanagerSpec:
+            # Only the cluster-gated Slack ApplicationSet supplies this label.
+            # Without it the chart's default null receiver handles all alerts.
+            alertmanagerConfigSelector:
+              matchLabels:
+                platformbox.io/alertmanager-config: slack
+            alertmanagerConfigNamespaceSelector:
+              matchNames:
+                - monitoring
+            # Rules emit alerts from several namespaces. The default OnNamespace
+            # strategy would only match alerts created in monitoring.
+            alertmanagerConfigMatcherStrategy:
+              type: None
+            resources:
+              requests:
+                cpu: 50m
+                memory: 64Mi
+              limits:
+                cpu: 200m
+                memory: 256Mi
+        prometheusOperator:
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
         nodeExporter:
           enabled: true
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
         kubeStateMetrics:
           enabled: true
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring

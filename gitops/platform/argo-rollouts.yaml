@@ -15,6 +15,11 @@ spec:
       values: |
         dashboard:
           enabled: true
+        # The controller metrics Service is scraped by the Phase 7
+        # ServiceMonitor in gitops/platform/observability.
+        controller:
+          metrics:
+            enabled: true
   destination:
     server: https://kubernetes.default.svc
     namespace: argo-rollouts

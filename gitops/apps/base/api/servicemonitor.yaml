@@ -16,6 +16,11 @@ spec:
   namespaceSelector:
     matchNames:
       - app-dev
+  # Surface pod labels on scrape targets so Grafana can separate stable
+  # releases and active canary pods without adding application cardinality.
+  podTargetLabels:
+    - app.kubernetes.io/version
+    - rollouts-pod-template-hash
   endpoints:
     - port: http
       path: /metrics
