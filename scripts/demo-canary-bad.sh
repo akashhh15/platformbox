@@ -53,8 +53,9 @@ fault_old = (
 if text.count(version_old) != 1 or text.count(fault_old) != 1:
     raise SystemExit("expected one version-label patch and one fault-injection patch")
 
-# Keep FAULT_INJECTION_ENABLED=true so only the canary returns 503 for
-# POST /chaos/fail. The stable ReplicaSet retains the previous release.
+# Keep FAULT_INJECTION_ENABLED=true so the new canary returns 503 for
+# POST /chaos/fail. Run the good demo first so the stable ReplicaSet is still
+# on a template with fault injection disabled.
 path.write_text(text.replace(version_old, version_new), encoding="utf-8")
 PY
 
@@ -74,9 +75,11 @@ cat <<EOF
 
 Bad-release demo branch '$BRANCH' is ready for target '$TARGET'.
 
-Fault injection stays enabled for the canary. The success-rate analysis counts
-POST /chaos/fail responses (unlike the 30-day SLO), so two failed measurements
-abort the rollout and restore the stable ReplicaSet.
+Prerequisite: run the good demo first and leave it deployed, so the stable
+ReplicaSet has fault injection disabled. This branch enables fault injection
+only in the new canary template. The success-rate analysis counts POST
+/chaos/fail responses (unlike the 30-day SLO), so two failed measurements abort
+the rollout and restore the stable ReplicaSet.
 
 Next steps (run them yourself):
   $PUSH_COMMAND
@@ -85,7 +88,8 @@ Next steps (run them yourself):
 Watch the rollout:
   kubectl -n $NAMESPACE argo rollouts get rollout api --watch
 
-In another terminal, send failures only to the canary through the shared Service:
+In another terminal, send failures through the shared Service; analysis filters
+to canary pods by pod-template hash:
   kubectl -n $NAMESPACE port-forward svc/api 8080:8000
   for i in \$(seq 1 60); do curl -s -o /dev/null -w '%{http_code}\n' -X POST http://localhost:8080/chaos/fail; sleep 1; done
 

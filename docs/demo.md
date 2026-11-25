@@ -85,7 +85,8 @@ scaled down.
 
 ## 2. Bad release: automatic abort and rollback (2 minutes)
 
-Restore a clean checkout first if needed, then prepare the bad branch:
+Keep the good release deployed, then return Git to the starting branch (do not
+re-apply the clean overlay) and prepare the bad branch:
 
 ```bash
 git checkout <the-branch-you-started-from>
@@ -94,8 +95,11 @@ kubectl apply -k gitops/apps/local
 kubectl -n app-local get rollout api --watch
 ```
 
-In the traffic terminal, send the opt-in failure endpoint. Only the canary has
-`FAULT_INJECTION_ENABLED=true`, so stable pods keep returning normal responses:
+The stable ReplicaSet still runs the good template with
+`FAULT_INJECTION_ENABLED=false`. The new canary template has it enabled, so
+`/chaos/fail` can inject failures into the canary. In the traffic terminal, send
+the opt-in failure endpoint through the shared Service; the analysis filters
+responses by canary pod-template hash:
 
 ```bash
 kubectl -n app-local port-forward svc/api 8080:8000
