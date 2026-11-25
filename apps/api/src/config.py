@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     service_name: str = "platformbox-api"
+    service_version: str = "0.1.0"
     environment: str = "dev"
     log_level: str = "INFO"
     host: str = "0.0.0.0"

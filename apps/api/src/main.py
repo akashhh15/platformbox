@@ -44,5 +44,5 @@ def root() -> dict[str, str]:
     return {
         "service": settings.service_name,
         "environment": settings.environment,
-        "version": "0.1.0",
+        "version": settings.service_version,
     }

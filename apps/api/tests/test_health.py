@@ -34,10 +34,8 @@ def test_ready_not_ready(client: TestClient) -> None:
 
 
 def test_metrics_endpoint(client: TestClient) -> None:
+    client.get("/")
     response = client.get("/metrics")
     assert response.status_code == 200
-    assert (
-        "http_requests_total" in response.text
-        or "promhttp" in response.text
-        or len(response.text) > 0
-    )
+    assert "http_requests_total{" in response.text
+    assert "http_request_duration_seconds_bucket{" in response.text
