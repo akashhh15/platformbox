@@ -1,13 +1,13 @@
-# Runbook: PlatformBoxRolloutAborted
+# Runbook: Rollout aborted
 
-- **Alert:** `PlatformBoxRolloutAborted`
+- **Alerts:** `PlatformBoxRolloutAborted`, `RolloutAborted`, `RolloutAnalysisFailed`
 - **Severity:** warning
 
 ## Symptoms
 
-An Argo Rollout has aborted, or the Rollouts controller reports a failed
-rollout/analysis event. Phase 8 adds the Prometheus analysis that will abort a
-bad canary automatically.
+An Argo Rollout has aborted, its Prometheus analysis failed, or Alertmanager
+received a `RolloutAborted`/`RolloutAnalysisFailed` notification from Argo
+Rollouts. A bad canary is automatically returned to the stable ReplicaSet.
 
 ## Impact
 
@@ -20,6 +20,7 @@ kubectl argo rollouts get rollout api -n app-dev
 kubectl argo rollouts history api -n app-dev
 kubectl -n argo-rollouts logs deploy/argo-rollouts --tail=200
 kubectl -n app-dev describe rollout api
+# Local demo namespace: replace app-dev with app-local in the commands above.
 ```
 
 ## Likely causes

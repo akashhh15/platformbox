@@ -122,7 +122,9 @@ make local-smoke
 
 `make local-up` installs the platform with Argo CD. `make local-smoke` builds the
 three app images, deploys them with in-cluster PostgreSQL and Redis, and checks
-the HTTP endpoints. Full instructions are in [docs/SETUP.md](docs/SETUP.md).
+the HTTP endpoints. `make demo` prepares a reviewable canary demo branch; both
+outcomes are scripted in [docs/demo.md](docs/demo.md). Full instructions are in
+[docs/SETUP.md](docs/SETUP.md).
 
 On Linux and macOS, install GNU Make and the pinned tools with your package
 manager first; the exact commands are in [docs/SETUP.md](docs/SETUP.md). No AWS
