@@ -12,7 +12,7 @@
 | 5 — CI/CD | Complete — merged and verified | 7 GitHub workflows, GitLab CI with Buildah/Trivy/Syft/Cosign/ECR OIDC, digest write-back, offline workflow validator; PR #13 merged; live pipelines are human-run |
 | 6 — DevSecOps and policy | Complete — merged and verified | Two CEL hardening policies, 35 offline policy tests, threat model, ADR-023; PR #15 merged |
 | 7 — Observability and SLOs | Complete — merged and verified | Six dashboards, SLO recording rules, ten alerts with runbooks, structured logs, worker metrics, opt-in Slack routing; PR #16 merged and `v0.7.0` tagged |
-| 8 — Progressive delivery | Implemented — awaiting review | Weighted canary steps, Prometheus analysis, automatic abort, good/bad demos, notifications, canary dashboard; offline validation passes |
+| 8 — Progressive delivery | Implemented — awaiting review | Weighted canary steps, Prometheus analysis, automatic abort, good/bad demos, notifications, canary dashboard; PR #17 open; offline validation passes |
 | 9 — Resilience (extension) | Not started | k6, chaos, game day, backup and restore |
 | 10 — FinOps (extension) | Not started | Cost model, optional Infracost, pause and teardown |
 | 11 — Documentation and polish | Not started | Final README, architecture, demo, interview notes |
@@ -261,7 +261,8 @@ are in [docs/SETUP.md](docs/SETUP.md).
   the Rollouts chart with the Phase 8 values.
 - Runtime rollout verification on kind was not run because the Docker daemon was
   unavailable in this environment. The good/bad walkthrough is in `docs/demo.md`.
-- No AWS resource was created, modified or deleted.
+- No AWS resource was created, modified or deleted. PR #17 is open with
+  `@atharvvv10` requested as reviewer and `@akashhh15` assigned as merger.
 
 ### 2026-11-21 — Phase 3 implemented
 
