@@ -2,8 +2,9 @@
 
 **Purpose.** This document explains how the application manifests are
 organised, how an image promotion reaches each environment, what runs in the
-local `kind` demo, and how Phase 7 metrics, logs, SLOs and alerts are wired. It
-describes the current repository, not a future wish list.
+local `kind` demo, how Phase 7 metrics, logs, SLOs and alerts are wired, and
+where cost estimates and allocation data come from. It describes the current
+repository, not a future wish list.
 
 **How to verify the claims.** Run `make check` for static validation and
 `make local-smoke` for runtime evidence. The exact rendered resource counts are
@@ -19,8 +20,9 @@ executed.
 ```mermaid
 flowchart TD
   ROOT[Argo CD root app] --> PLAT[gitops/platform]
-  PLAT --> CORE[ingress, Kyverno, monitoring, logging, rollouts, ESO]
+  PLAT --> CORE[ingress, Kyverno, monitoring, logging, rollouts, ESO, OpenCost]
   PLAT --> SETS[ApplicationSets]
+  GHA --> COST[Infracost diff + cost guardrail]
   SETS -->|cluster label platformbox.io/target=eks| DEV[dev Application]
   SETS --> STG[staging Application]
   SETS --> PROD[prod Application - manual sync]
@@ -141,7 +143,7 @@ guessed here.
 ## Observability and SLOs
 
 All Phase 7 resources are code under `gitops/platform/observability`. The Grafana
-sidecar imports six dashboard ConfigMaps labelled `grafana_dashboard: "1"`; the
+sidecar imports seven dashboard ConfigMaps labelled `grafana_dashboard: "1"`; the
 Prometheus Operator selects the `PrometheusRule` and platform `ServiceMonitor`
 resources by the labels configured in `gitops/platform/monitoring.yaml`.
 
@@ -153,6 +155,7 @@ resources by the labels configured in `gitops/platform/monitoring.yaml`.
 | API RED | Rate, 5xx ratio, p95, error budget, canary/stable ReplicaSet hash, canary replica fraction | Full after `make local-smoke` |
 | Worker | Queue depth, job rate, p95 job duration, invalid JSON | Full after `make local-smoke` |
 | Kyverno | ValidatingPolicy failures, result modes, execution p95 | Full |
+| Cost by namespace | OpenCost CPU and memory allocation cost by namespace | Full after `opencost` sync; allocation view only |
 
 Scrape sources are explicit. The API and worker `ServiceMonitor` resources add
 `app.kubernetes.io/version` and, for the API Rollout,
@@ -162,7 +165,9 @@ enables the Rollouts controller metrics Service, and an observability
 `ServiceMonitor` selects each one. Kyverno's four metrics Services are selected
 by one `ServiceMonitor`. The Karpenter Helm chart in
 `infra/modules/karpenter/main.tf` creates its own `ServiceMonitor` with the
-`release: monitoring` label; no Karpenter component runs on kind.
+`release: monitoring` label; no Karpenter component runs on kind. OpenCost chart
+`2.5.35` creates its own `ServiceMonitor` with the same label, so the existing
+Prometheus scrapes its allocation metrics without a second monitoring stack.
 
 The worker exposes custom Prometheus metrics from `apps/worker/src/metrics.py`:
 queue depth, jobs by result and job duration histogram. Both Python services
@@ -240,6 +245,26 @@ scripts and checks the demo patch contracts. `bash scripts/helm-lint.sh`
 additionally renders the shared Argo CD values against charts 10.18.2 and 7.0.0
 and the Rollouts values against chart 2.38.0.
 
+## Cost controls
+
+Cost has three distinct views. Infracost estimates Terraform changes on a pull
+request and posts one updatable comment. `scripts/cost_guardrail.py` parses that
+comment and warns at a monthly increase of 10% or blocks at 25%; it does not
+invent an absolute dollar baseline. AWS Cost Explorer reporting is human-run
+with `scripts/cost_report.py` because the API is billed per request and needs
+credentials. OpenCost supplies a near-real-time namespace allocation view, not
+an invoice.
+
+Karpenter node pools are generated per registered EKS cluster from cluster
+Secret metadata. The spot pool has weight 100 and the bounded on-demand fallback
+has weight 10. Both use consolidation and disruption budgets. No Karpenter
+resource is generated for kind, and no account-specific value is committed.
+
+All figures are formulas or `TODO(measure)` items in [docs/costs.md](costs.md).
+The agent makes no live Cost Explorer, Infracost or AWS cost request; the
+workflow interfaces, chart digest, container image digest and cost formulas are
+verified offline. ADR-031 to ADR-035 record the decisions.
+
 ## Disaster recovery
 
 This section describes the current boundary, not a target state. Full commands
@@ -277,6 +302,10 @@ There is no measured recovery time objective or recovery point objective.
   substitute for an unimplemented EKS spot-interruption drill (ADR-028).
 - RDS snapshot/PITR restore, Velero, Multi-AZ failover automation and
   multi-region failover are not executed (ADR-029).
+- Live Infracost comment generation, Cost Explorer spend and billed AWS usage
+  are not produced by the agent. Cluster-specific Karpenter scheduling and
+  live OpenCost metrics need a human-provisioned EKS cluster and credentials
+  (ADR-031 to ADR-035).
 
 ## References
 
@@ -287,6 +316,9 @@ There is no measured recovery time objective or recovery point objective.
 - [ADR-017: Baseline PSS for local data](adr/ADR-017-baseline-pss-for-local-data.md)
 - [ADR-018: Canary strategy without steps](adr/ADR-018-canary-without-steps.md)
 - [ADR-026: Replica-weighted canary](adr/ADR-026-replica-weighted-canary.md)
+- [ADR-033: Spot-first Karpenter parameters](adr/ADR-033-spot-first-karpenter-parameters.md)
+- [ADR-034: OpenCost for namespace allocation](adr/ADR-034-opencost-allocation.md)
+- [ADR-035: Canonical Project tag and Cost Explorer reporting](adr/ADR-035-cost-tag-and-reporting.md)
 - [ADR-027: Argo notifications via Alertmanager](adr/ADR-027-argo-notifications-via-alertmanager.md)
 - [ADR-028: Opt-in Chaos Mesh](adr/ADR-028-chaos-mesh-opt-in.md)
 - [ADR-029: Backup boundary](adr/ADR-029-backup-boundary.md)

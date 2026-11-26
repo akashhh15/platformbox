@@ -1,0 +1,100 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: opencost
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  project: platform
+  source:
+    chart: opencost
+    repoURL: https://opencost.github.io/opencost-helm-chart
+    targetRevision: 2.5.35
+    helm:
+      values: |
+        # Images are pinned to appVersion 1.121.5 digests in docs/VERSIONS.md.
+        # The chart's plugin installer defaults to an unpinned curl:latest
+        # image, so it is disabled: no plugins are required by this platform.
+        plugins:
+          install:
+            enabled: false
+
+        podSecurityContext:
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
+
+        # Extra volumes let both containers keep a read-only root filesystem.
+        extraVolumes:
+          - name: tmp
+            emptyDir: {}
+          - name: ui-cache
+            emptyDir: {}
+          - name: ui-run
+            emptyDir: {}
+
+        opencost:
+          prometheus:
+            internal:
+              enabled: true
+              serviceName: monitoring-kube-prometheus-prometheus
+              namespaceName: monitoring
+              port: 9090
+              path: ""
+              scheme: http
+          metrics:
+            serviceMonitor:
+              enabled: true
+              additionalLabels:
+                release: monitoring
+              scrapeInterval: 30s
+              scrapeTimeout: 10s
+          exporter:
+            extraVolumeMounts:
+              - name: tmp
+                mountPath: /tmp
+            resources:
+              requests:
+                cpu: 10m
+                memory: 64Mi
+              limits:
+                cpu: 200m
+                memory: 512Mi
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop: [ALL]
+              readOnlyRootFilesystem: true
+              runAsNonRoot: true
+              runAsUser: 1000
+          ui:
+            extraVolumeMounts:
+              - name: tmp
+                mountPath: /tmp
+              - name: ui-cache
+                mountPath: /var/cache/nginx
+              - name: ui-run
+                mountPath: /var/run
+            resources:
+              requests:
+                cpu: 10m
+                memory: 32Mi
+              limits:
+                cpu: 100m
+                memory: 128Mi
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop: [ALL]
+              readOnlyRootFilesystem: true
+              runAsNonRoot: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: opencost
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

@@ -39,8 +39,8 @@ promtool test rules "$WORK/test.yaml"
 
 echo "==> Grafana dashboards: JSON validity"
 mapfile -t dashboards < <(find "$DASHBOARD_DIR" -maxdepth 1 -name '*.json' -type f | sort)
-if [[ "${#dashboards[@]}" -ne 6 ]]; then
-  echo "ERROR: expected 6 dashboard JSON files, found ${#dashboards[@]}." >&2
+if [[ "${#dashboards[@]}" -ne 7 ]]; then
+  echo "ERROR: expected 7 dashboard JSON files, found ${#dashboards[@]}." >&2
   exit 1
 fi
 
@@ -90,8 +90,8 @@ done
 echo "==> Rendered observability resources"
 kustomize build gitops/platform/observability >"$WORK/rendered.yaml"
 dashboard_count="$(yq ea '[select(.kind == "ConfigMap" and .metadata.labels.grafana_dashboard == "1")] | length' "$WORK/rendered.yaml")"
-if [[ "$dashboard_count" -ne 6 ]]; then
-  echo "ERROR: expected 6 sidecar-labelled dashboard ConfigMaps, found $dashboard_count." >&2
+if [[ "$dashboard_count" -ne 7 ]]; then
+  echo "ERROR: expected 7 sidecar-labelled dashboard ConfigMaps, found $dashboard_count." >&2
   exit 1
 fi
 rule_scope="$(yq ea '[select(.kind == "PrometheusRule")] | map((.metadata.namespace == "monitoring") and (.metadata.labels["app.kubernetes.io/part-of"] == "platformbox")) | all' "$WORK/rendered.yaml")"

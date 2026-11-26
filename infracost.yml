@@ -1,0 +1,19 @@
+version: "0.3"
+
+# Infracost CI reads this file from the root of each checkout (base and head).
+# Paths in `terraform.var_files` are relative to `path`; `usage_file` is
+# relative to the repository root. Infracost silently ignores a missing usage
+# file, so CI verifies that every path below exists before scanning.
+projects:
+  - path: infra/environments/dev
+    name: cloud-platform-in-a-box-dev
+    terraform:
+      var_files:
+        - terraform.tfvars.example
+    usage_file: infracost-usage.yml
+  - path: infra/environments/prod
+    name: cloud-platform-in-a-box-prod
+    terraform:
+      var_files:
+        - terraform.tfvars.example
+    usage_file: infracost-usage.yml

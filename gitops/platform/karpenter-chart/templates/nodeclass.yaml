@@ -1,0 +1,29 @@
+# Shared node class for both spot and on-demand pools. Discovery selectors use
+# the same `karpenter.sh/discovery` tag applied by the network and EKS modules.
+apiVersion: karpenter.k8s.aws/v1
+kind: EC2NodeClass
+metadata:
+  name: {{ include "karpenter-nodepools.clusterName" . }}
+  labels:
+    app.kubernetes.io/name: karpenter-nodepools
+    app.kubernetes.io/part-of: platformbox
+spec:
+  clusterName: {{ include "karpenter-nodepools.clusterName" . | quote }}
+  role: {{ include "karpenter-nodepools.nodeRoleArn" . | quote }}
+  amiSelectorTerms:
+    - alias: {{ .Values.amiAlias | quote }}
+  subnetSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: {{ include "karpenter-nodepools.clusterName" . | quote }}
+  securityGroupSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: {{ include "karpenter-nodepools.clusterName" . | quote }}
+  blockDeviceMappings:
+    - deviceName: /dev/xvda
+      ebs:
+        volumeSize: 40Gi
+        volumeType: gp3
+        encrypted: true
+        deleteOnTermination: true
+  tags:
+    {{- include "karpenter-nodepools.tags" . | nindent 4 }}

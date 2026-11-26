@@ -7,7 +7,8 @@ as the version change.
 Verification date for this table: **2026-11-22**. Earlier entries were verified
 on 2026-11-21; the Phase 4 additions below were verified on 2026-11-22. Phase 7
 interface checks were verified again on **2026-11-25**; see the Phase 7 section
-below. Phase 9 versions and interfaces were verified on **2026-11-25**.
+below. Phase 9 versions and interfaces were verified on **2026-11-25**. Phase 10
+finance and Karpenter interfaces were verified on **2026-11-26**.
 
 ## Local toolchain
 
@@ -238,6 +239,32 @@ on 2026-11-25. No load test or fault injection was executed.
 | metrics-server 0.9.1 | `components.yaml` SHA-256 `3c7f57cdbee0f57fb0259a150e8f6d6cb4f29d72d1aa5dce8803151dd6d4c2a1`; kind needs `--kubelet-insecure-tls`, EKS does not | [metrics-server releases](https://github.com/kubernetes-sigs/metrics-server/releases/tag/v0.9.1) and [requirements](https://github.com/kubernetes-sigs/metrics-server#requirements) |
 | metrics-server chart 3.14.0 | App version 0.9.0; the upstream `components.yaml` release is used for the human-run HPA prerequisite, not a Helm Application | `helm search repo metrics-server/metrics-server --versions` |
 | HPA timing | Sync period defaults to 15s, CPU target is a percentage of container requests, downscale stabilisation defaults to 300s; prove scale-up with a sustained plateau | [HPA walkthrough](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale-walkthrough/) |
+
+## Phase 10 interface verification
+
+These facts were checked against official documentation, published source and
+pulled chart archives on 2026-11-26. No live AWS, Cost Explorer, Infracost PR
+comment or cluster operation was performed.
+
+| Component | Version or interface | Evidence |
+|---|---|---|
+| Infracost CI container | `ghcr.io/infracost/ci@sha256:e7ddb5c9026624456b47ec4208da00ef942ee390b29cb331d648b8c0d8731ee5` (2.1.5) | Pinned container digest; `infracost-ci diff --help` in the published source |
+| Infracost CI auth | `INFRACOST_CLI_AUTHENTICATION_TOKEN`; `INFRACOST_API_KEY` is not accepted | [Infracost CI README](https://github.com/infracost/ci/blob/master/README.md) |
+| Infracost comment file | `diff --base-path <dir> --head-path <dir> --comment-out-file <path>` needs no provider token | `internal/commands/diff.go` flags and `commentfile.go` in the pinned CI source |
+| Infracost config | Version `0.3`; `path` relative to working directory, `terraform.var_files` relative to project, `usage_file` relative to repo root; missing usage file is skipped | [Infracost config](https://www.infracost.io/docs/features/config_file/) and `internal/config/scan.go` |
+| Infracost comment tag | `[//]: <> (infracost-comment)` | [Infracost VCS README](https://github.com/infracost/vcs/blob/master/README.md) |
+| `actions/download-artifact` | v4.3.0, commit `d3f86a106a0bac45b974a628896c90dbdf5c8093` | `git ls-remote --tags` on 2026-11-26 |
+| boto3 / PyYAML | `1.44.12` / `6.0.4` | PyPI pins in `requirements-dev.txt`; installed locally |
+| Cost Explorer pricing | USD 0.01 per `get_cost_and_usage` request with the primary billing view | [AWS pricing](https://aws.amazon.com/aws-cost-management/aws-cost-explorer/pricing/) |
+| OpenCost chart | `opencost/opencost` 2.5.35, archive SHA-256 `35c5ec2294ab22a2a1fcb14018b45d83cae8e96bf19bff86b9a669335a2836db` | `helm pull` and local `sha256sum` |
+| OpenCost exporter image | `ghcr.io/opencost/opencost:1.121.5@sha256:29e7becb7b04b935d85031c7fb43bb3731b53899b3f05353c83c5850619ade3e` | Resolved with registry tooling; chart value `opencost.exporter.image.tag` |
+| OpenCost UI image | `ghcr.io/opencost/opencost-ui:1.121.5@sha256:ead6e6dc09c84b34aeb850dfeef84dca9410c9d85fe980d2359a66a14ccde809` | Resolved with registry tooling; chart value `opencost.ui.image.tag` |
+| OpenCost metrics | `node_cpu_hourly_cost`, `node_ram_hourly_cost`, `container_cpu_allocation`, `container_memory_allocation_bytes` and their labels | [OpenCost metrics](https://opencost.io/docs/integrations/metrics) |
+| Karpenter NodePool | v1 supports `spec.weight`, `spec.limits`, `disruption.consolidationPolicy`, `consolidateAfter`, `budgets` and `template.spec.expireAfter` | [NodePool docs](https://karpenter.sh/docs/concepts/nodepools/) and [disruption docs](https://karpenter.sh/docs/concepts/disruption/) |
+| Karpenter consolidation | v1 default is `WhenEmptyOrUnderutilized`; fixed alias AMIs track the control-plane version | [Disruption docs](https://karpenter.sh/docs/concepts/disruption/) and [AMI docs](https://karpenter.sh/docs/tasks/managing-amis/) |
+| Karpenter AMI alias | `al2023@v20240807` | [AMI docs](https://karpenter.sh/docs/tasks/managing-amis/) |
+| Karpenter discovery | `EC2NodeClass` v1 uses `subnetSelectorTerms`, `securityGroupSelectorTerms` and `amiSelectorTerms` | [NodeClass docs](https://karpenter.sh/docs/concepts/nodeclasses/) |
+| Argo CD cluster generator | Exposes `metadata.labels.<key>` and `metadata.annotations.<key>`; `index` handles keys with `/` | [Cluster generator](https://argo-cd.readthedocs.io/en/latest/operator-manual/applicationset/Generators-Cluster/) |
 
 ## Platform versions to pin in later phases
 

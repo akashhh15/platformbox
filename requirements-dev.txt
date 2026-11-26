@@ -9,3 +9,5 @@ ruff==0.17.6
 pytest==8.4.2
 yamllint==1.38.0
 checkov==3.4.6
+boto3==1.44.12
+PyYAML==6.0.4

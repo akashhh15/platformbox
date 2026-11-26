@@ -1,0 +1,6 @@
+apiVersion: v2
+name: karpenter-nodepools
+description: Spot-first Karpenter NodePool and EC2NodeClass configuration for one EKS cluster.
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

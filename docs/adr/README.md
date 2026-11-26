@@ -38,5 +38,10 @@ one with a new ADR instead of rewriting history.
 | [ADR-028](ADR-028-chaos-mesh-opt-in.md) | Opt-in Chaos Mesh with a kind node-stop substitute | Accepted |
 | [ADR-029](ADR-029-backup-boundary.md) | Backup boundary for Phase 9 | Accepted |
 | [ADR-030](ADR-030-k6-profiles-and-thresholds.md) | k6 profiles and provisional thresholds | Accepted |
+| [ADR-031](ADR-031-infracost-ci-comment-workflow.md) | Infracost CI comment-file workflow | Accepted |
+| [ADR-032](ADR-032-cost-increase-thresholds.md) | Cost-increase thresholds | Accepted |
+| [ADR-033](ADR-033-spot-first-karpenter-parameters.md) | Spot-first Karpenter with cluster-supplied parameters | Accepted |
+| [ADR-034](ADR-034-opencost-allocation.md) | OpenCost for namespace allocation | Accepted |
+| [ADR-035](ADR-035-cost-tag-and-reporting.md) | Canonical Project tag and Cost Explorer reporting | Accepted |
 
 Use [template.md](template.md) for a new ADR.

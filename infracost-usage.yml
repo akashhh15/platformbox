@@ -1,0 +1,22 @@
+# Planning assumptions for usage-based resources. These are not measurements.
+# Replace each value with observed monthly usage before treating the estimate
+# as a forecast; see docs/costs.md ("TODO(measure)" table).
+version: 0.1
+
+resource_type_default_usage:
+  aws_cloudwatch_log_group:
+    storage_gb: 10 # Retained VPC flow logs and platform logs.
+    monthly_data_ingested_gb: 5 # Ingested per month across the log group.
+    monthly_data_scanned_gb: 2 # Logs Insights scans per month.
+  aws_db_instance:
+    additional_backup_storage_gb: 0 # No backup beyond the allocated storage.
+    monthly_standard_io_requests: 1000000 # gp3 I/O included in the baseline.
+    monthly_additional_performance_insights_requests: 0 # PI is disabled.
+    monthly_cpu_credit_hrs: 0 # Instances are not burstable T-series.
+  aws_ecr_repository:
+    storage_gb: 5 # Three repositories, small images, lifecycle policy enabled.
+  aws_sqs_queue:
+    monthly_requests: 100000 # Karpenter interruption events only.
+    request_size_kb: 16
+  aws_vpc_endpoint:
+    monthly_data_processed_gb: 100 # Gateway endpoint has no data-processing charge.

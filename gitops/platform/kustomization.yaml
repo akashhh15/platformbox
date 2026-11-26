@@ -6,11 +6,13 @@ resources:
   - kyverno.yaml
   - kyverno-policies-app.yaml
   - monitoring.yaml
+  - opencost.yaml
   - logging.yaml
   - observability
   - alertmanager-slack-applicationset.yaml
   - chaos-mesh-applicationset.yaml
   - argo-rollouts.yaml
+  - karpenter-applicationset.yaml
   - apps-applicationset.yaml
   - aws-secrets-store-applicationset.yaml
 

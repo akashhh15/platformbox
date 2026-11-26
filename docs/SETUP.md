@@ -224,12 +224,18 @@ No AWS account, registry credential or domain is needed. Details are in
 For phase pull requests, `@atharvvv10` approves and `@akashhh15` merges. Do not
 self-approve, use an admin bypass, or push directly to `main`.
 
+Pushing a branch that changes `.github/workflows/` requires a human GitHub
+credential with both `repo` and `workflow` scope. The agent does not create,
+read, write, or otherwise handle credentials or tokens. If the local helper
+token is `repo`-only, the human must push with their own workflow-scoped
+credential before a PR can be opened.
+
 ### GitHub secrets
 
 | Name | Used by | Purpose |
 |---|---|---|
 | `GITLAB_MIRROR_TOKEN` | `mirror-to-gitlab.yml` | GitLab personal or project access token with `write_repository` on the target project |
-| `INFRACOST_API_KEY` | `terraform-ci.yml` | Optional Infracost API key for the PR cost diff |
+| `INFRACOST_CLI_AUTHENTICATION_TOKEN` | `terraform-ci.yml` | Optional Infracost CLI token for the PR cost diff; the old `INFRACOST_API_KEY` is rejected by Infracost CI v2.1.5 |
 
 ### GitHub variables
 
@@ -395,6 +401,35 @@ To enable Slack on EKS:
    generated Secret in the `monitoring` namespace and send a test alert.
    Never put the webhook URL in Git or in a Helm value.
 
+### Cost controls and Karpenter on EKS
+
+The cost estimate job is optional until the GitHub secret
+`INFRACOST_CLI_AUTHENTICATION_TOKEN` is set. It uses
+`ghcr.io/infracost/ci@sha256:e7ddb5c9026624456b47ec4208da00ef942ee390b29cb331d648b8c0d8731ee5`,
+writes its comment to a file, then a second job posts one updatable PR comment
+with a warn at `+10%` and a block at `+25%` (ADR-031 and ADR-032). Verify the
+comment and thresholds manually on one real PR before relying on them.
+
+For Karpenter, add these to the registered EKS cluster Secret after
+`terraform output`:
+
+| Metadata | Value |
+|---|---|
+| Label `platformbox.io/cluster-name` | `terraform output -raw cluster_name` |
+| Label `platformbox.io/environment` | `dev` or `prod` |
+| Annotation `platformbox.io/karpenter-node-role` | `terraform output -raw karpenter_node_role_arn` |
+
+The cluster must already carry `platformbox.io/target: eks`. The EKS and network
+modules tag the node security group and private subnets with the same
+`karpenter.sh/discovery` value as `cluster_name`. The local kind cluster has no
+matching Secret, so no Karpenter resources are generated there (ADR-033).
+
+To record actual spend, run `scripts/cost_report.py` with human AWS credentials
+that can call Cost Explorer in `us-east-1`. Every request is billed; the script
+prints the number of requests. Replace the `TODO(measure)` entries in
+`docs/costs.md` only after a full billing month. Pause and teardown guidance is
+in [docs/costs.md](costs.md).
+
 ## 9. Optional AWS production path (costs money)
 
 **Do not run this unless you explicitly want a paid demo.** The agent never
@@ -425,6 +460,11 @@ These cannot be completed by the agent. Check them off as you go.
 - [x] Confirm `.github/CODEOWNERS` names the real repository owner.
 - [x] Configure branch protection on `main`.
 - [ ] Add every GitHub secret and variable from section 5.
+- [ ] Push `phase/10-finops` with your own `repo` + `workflow` GitHub credential,
+      open the PR, request review from `@atharvvv10` and merge through
+      `@akashhh15`. The branch changes `.github/workflows/terraform-ci.yml`, so
+      a `repo`-only token is rejected. Do not push to `main`, force push, or
+      create `v0.10.0` without approval.
 - [ ] Create the GitLab project and record its path in `GITLAB_PROJECT_PATH`.
 - [ ] Add every GitLab CI/CD variable from section 6, including the ECR OIDC
       role and registry host.
@@ -437,8 +477,9 @@ These cannot be completed by the agent. Check them off as you go.
 - [ ] If Slack is wanted on EKS, create the AWS Secrets Manager secret
       `platformbox/alertmanager` with property `webhook_url` and add the
       `platformbox.io/slack-alerting: "true"` cluster label (§8, ADR-025).
-- [ ] With Docker Desktop running, verify the six dashboards, Prometheus rule
-      groups, Alertmanager null receiver and a Loki query on kind (§8).
+- [ ] With Docker Desktop running, verify the seven dashboards, Prometheus rule
+      groups, Alertmanager null receiver, OpenCost targets and a Loki query on
+      kind (§8).
 - [ ] With Docker Desktop running, run the good and bad canary demos and capture
       the screenshots listed in `docs/demo.md`. No AWS resources are involved.
 - [ ] Verify `k6 version` reports 2.4.0 after `make tools`, then run the three
@@ -467,6 +508,18 @@ These cannot be completed by the agent. Check them off as you go.
       variables and add the TLS Ingress patch; no hostname is committed.
 - [ ] If you deploy the AWS overlays, patch the app NetworkPolicies with an
       `ipBlock` allow for your VPC CIDR so ALB traffic reaches the pods.
+- [ ] Set `INFRACOST_CLI_AUTHENTICATION_TOKEN`, open a test PR and confirm the
+      single Infracost comment contains the cost table and guardrail verdict.
+      Do not paste the token into a workflow file.
+- [ ] If you deploy to EKS, add the cluster-name/environment labels and node
+      role annotation listed in §8 so the Karpenter Application becomes healthy.
+- [ ] Run `scripts/cost_report.py` with human credentials, note the printed
+      request count, and replace the `TODO(measure)` items in `docs/costs.md`
+      after a full billing month.
+- [ ] Verify the `PlatformBox / Cost by Namespace` dashboard against recorded
+      Cost Explorer spend before using it for chargeback.
+- [ ] Decide whether to pause or fully tear down the optional AWS demo; follow
+      `docs/costs.md` and never let the agent run a mutating AWS command.
 - [ ] Run `make check` on a fresh clone and report any environment-specific
       failure.
 

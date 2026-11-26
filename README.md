@@ -5,11 +5,13 @@ progressive delivery, policy-as-code, observability, SLOs, and a supply chain
 that signs what it ships. The AWS EKS production path is written and validated
 with Terraform, but it is optional and is never applied by the agent.
 
-> **Status: Phase 9 — Resilience.** k6 profiles, opt-in chaos experiments, a
-> game-day template and an honest backup/DR boundary are written and statically
-> validated; no fault was injected by the agent. GitHub Actions and GitLab CI
-> remain offline-validated; live pipelines need human-supplied tokens and OIDC
-> roles. The local platform and its application manifests run on `kind`.
+> **Status: Phase 10 — FinOps.** Cost formulas, an optional Infracost PR
+> comment with warn/block thresholds, spot-first Karpenter parameters, an
+> OpenCost namespace dashboard, AWS Cost Explorer reporting and pause/teardown
+> guidance are written and statically validated. No live cost API or AWS
+> resource was used by the agent. GitHub Actions and GitLab CI remain
+> offline-validated; live pipelines need human-supplied tokens and OIDC roles.
+> The local platform and its application manifests run on `kind`.
 > See [PROGRESS.md](PROGRESS.md) for the phase plan and current state, and
 > [docs/architecture.md](docs/architecture.md) for the delivery model.
 
@@ -25,7 +27,7 @@ with Terraform, but it is optional and is never applied by the agent.
 | Observability and SRE | Prometheus, Grafana, Loki, six dashboards, SLO recording rules, multi-window burn-rate alerts, runbooks | Phase 7 (static validation; runtime steps in setup) |
 | Progressive delivery | Argo Rollouts canary with Prometheus analysis and automatic rollback | Phase 8 |
 | Resilience | k6 load tests, chaos experiments, game-day template, backup and restore | Phase 9 |
-| FinOps | Cost model, optional Infracost, teardown and pause procedures | Phase 10 |
+| FinOps | Cost formulas, Infracost guardrails, OpenCost allocation, Cost Explorer reporting, pause and teardown | Phase 10 (static validation; human-run AWS reporting) |
 | Documentation | Architecture, ADRs, runbooks, demo script, interview notes | Phase 11 |
 
 ## Architecture
@@ -34,6 +36,7 @@ with Terraform, but it is optional and is never applied by the agent.
 flowchart LR
   Dev[Developer] --> GH[GitHub repository]
   GH -->|pull request checks| GHA[GitHub Actions]
+  GHA -.->|Infracost diff + guardrail| COST[Cost PR comment]
   GH -->|mirror main| GL[GitLab project]
   GL --> GLCI[GitLab CI]
   GLCI -->|build, scan, SBOM, sign| REG[ECR - human-run AWS path]
@@ -43,6 +46,8 @@ flowchart LR
   APPS --> PG[(PostgreSQL)]
   APPS --> REDIS[(Redis)]
   ARGO --> OBS[Prometheus / Grafana / Loki]
+  ARGO --> OPEN[OpenCost allocation]
+  OPEN -.->|ServiceMonitor| OBS
   KYV[Kyverno] -.->|admission| APPS
   ROLL[Argo Rollouts] -.->|canary| APPS
   GH -.->|optional, human-run| AWS[Terraform to AWS EKS]
@@ -73,9 +78,12 @@ Terraform apply path is design-validated only. The trade-off is recorded in
    admission is deliberately deferred until a real signed digest and OIDC
    subject are available (ADR-023).
 7. Prometheus, Grafana and Loki provide metrics, logs, SLO burn-rate alerts and
-   saved queries; each alert has a runbook.
-8. `make down` deletes the local cluster. The AWS path, if ever applied, has
-   its own guarded targets and budget alerts.
+   saved queries; each alert has a runbook. OpenCost adds namespace allocation.
+8. Cost changes are estimated on pull requests and commented with a 10% warn
+   and 25% block threshold. Actual spend is reported manually from Cost
+   Explorer because every request is billed.
+9. `make down` deletes the local cluster. The optional AWS path has guarded
+   targets, budget alerts and separate pause/teardown guidance.
 
 ## Feature table
 
@@ -138,9 +146,13 @@ account is required for the local path.
 
 - **Local default:** $0. Docker Desktop, kind and every platform component are
   free for personal use; GitHub and GitLab free tiers are sufficient.
-- **Optional AWS path:** not applied by default. Estimates, assumptions and
-  verification steps are in [ADR-000](docs/adr/ADR-000-local-first-zero-cost.md).
-  The agent never creates AWS resources.
+- **Optional AWS path:** not applied by default. Estimates, assumptions,
+  component cost formulas and verification steps are in [docs/costs.md](docs/costs.md)
+  and [ADR-000](docs/adr/ADR-000-local-first-zero-cost.md). The agent never
+  creates AWS resources or calls billed Cost Explorer APIs.
+- **Pause versus teardown:** pausing scales workloads to zero but does not stop
+  fixed charges. `docs/costs.md` lists each remaining billable component and the
+  human-only full teardown order.
 - **Teardown:** `make down` deletes the local kind cluster and everything in it.
 
 ## Results
@@ -154,7 +166,8 @@ No measurements are claimed yet. The following will be filled with real data:
   day.
 - `TODO(measure):` RDS snapshot restore time from the human-run drill.
 - `TODO(measure):` resource requests versus observed usage on kind.
-- `TODO(measure):` optional AWS cost from a real short-lived demo, if one is run.
+- `TODO(measure):` optional AWS cost by service and month from a real
+  short-lived demo, if one is run.
 
 ## Documentation
 
@@ -169,6 +182,8 @@ No measurements are claimed yet. The following will be filled with real data:
   local-versus-AWS observability boundary and the DR boundary.
 - [docs/resilience.md](docs/resilience.md) — load profiles, HPA/Karpenter proof,
   PDB/drain procedure and backup/restore steps.
+- [docs/costs.md](docs/costs.md) — cost formulas, assumptions, Infracost
+  thresholds, Cost Explorer reporting, pause and teardown.
 - [docs/log-queries.md](docs/log-queries.md) — saved LogQL queries and the
   structured fields that make them work.
 - [docs/runbooks/](docs/runbooks/) — one runbook per alert.
