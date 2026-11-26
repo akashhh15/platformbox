@@ -13,8 +13,8 @@
 | 6 — DevSecOps and policy | Complete — merged and verified | Two CEL hardening policies, 35 offline policy tests, threat model, ADR-023; PR #15 merged |
 | 7 — Observability and SLOs | Complete — merged and verified | Six dashboards, SLO recording rules, ten alerts with runbooks, structured logs, worker metrics, opt-in Slack routing; PR #16 merged and `v0.7.0` tagged |
 | 8 — Progressive delivery | Complete — merged and verified | Weighted canary steps, Prometheus analysis, automatic abort, good/bad demos, notifications, canary dashboard; PR #17 merged; `v0.8.0` tagged |
-| 9 — Resilience (extension) | Implemented — awaiting review | k6 load profiles, opt-in Chaos Mesh experiments, game day, PDB/drain and backup/restore docs; offline validation passes; no fault injected |
-| 10 — FinOps (extension) | Not started | Cost model, optional Infracost, pause and teardown |
+| 9 — Resilience (extension) | Complete — merged and verified | k6 load profiles, opt-in Chaos Mesh experiments, game day, PDB/drain and backup/restore docs; PR #18 approved by `@atharvvv10`, merged by `@akashhh15`, tagged `v0.9.0`; no fault injected |
+| 10 — FinOps (extension) | Implemented — awaiting review | Cost formulas, Infracost guardrails, spot-first Karpenter parameters, OpenCost dashboard, Cost Explorer report, pause and teardown; offline validation passes; no live cost API call |
 | 11 — Documentation and polish | Not started | Final README, architecture, demo, interview notes |
 | 12 — Final audit | Not started | Security, correctness, reproducibility, cost, docs |
 
@@ -70,6 +70,11 @@ runtime is a local `kind` cluster; AWS Terraform is validated with
 | 2026-11-25 | Chaos Mesh 2.8.8 is cluster-gated and opt-in; kind worker stop replaces an unimplemented spot-interruption drill | ADR-028 |
 | 2026-11-25 | Backup boundary is RDS automated backups plus Git; no Velero, RTO or RPO claim | ADR-029 |
 | 2026-11-25 | k6 profiles use provisional thresholds from ADR-024 with a sustained plateau for HPA proof | ADR-030 |
+| 2026-11-26 | Infracost CI writes a comment file; a separate job appends the local verdict and upserts one PR comment | ADR-031 |
+| 2026-11-26 | Warn at +10% and block at +25% monthly cost increase; no absolute dollar baseline is invented | ADR-032 |
+| 2026-11-26 | Karpenter spot weight 100 with bounded on-demand fallback and cluster Secret metadata for account-specific values | ADR-033 |
+| 2026-11-26 | OpenCost supplies namespace allocation; Cost Explorer remains the bill-reconciled view | ADR-034 |
+| 2026-11-26 | Canonical Project tag is `cloud-platform-in-a-box`; Cost Explorer requests are billed and human-run | ADR-035 |
 
 ## Open items
 
@@ -112,6 +117,13 @@ runtime is a local `kind` cluster; AWS Terraform is validated with
   to use `--kubelet-insecure-tls` on EKS.
 - Velero, multi-region failover and a measured RTO/RPO remain unimplemented;
   the RDS restore drill is a human task in `docs/resilience.md` (ADR-029).
+- The Infracost token is optional. Until `INFRACOST_CLI_AUTHENTICATION_TOKEN`
+  is set, the cost job reports `configured=false` and posts no comment.
+- The cluster Secret metadata for Karpenter (name, environment, node role ARN)
+  must be added by a human after Terraform output; kind generates no Karpenter
+  resources (ADR-033).
+- No actual AWS cost has been measured. All figures in `docs/costs.md` are
+  formulas or `TODO(measure)` items; Cost Explorer is billed per request.
 
 ## Human tasks
 
@@ -152,6 +164,17 @@ are in [docs/SETUP.md](docs/SETUP.md).
       approval. Never run it against a production database.
 - [ ] Decide whether Velero is worth adding after a real restore need exists;
       no bucket, IAM or backup data is created in the current local path.
+- [ ] Set `INFRACOST_CLI_AUTHENTICATION_TOKEN`, open a test PR and confirm the
+  single Infracost comment contains the cost table and guardrail verdict.
+- [ ] If EKS is deployed, label/annotate the cluster Secret with the Karpenter
+  values listed in `docs/SETUP.md` §8 and verify the generated Application.
+- [ ] Run `scripts/cost_report.py` with human credentials, note the printed
+  request count, and replace the `TODO(measure)` entries in `docs/costs.md`
+  after a full billing month.
+- [ ] Compare the OpenCost namespace dashboard with recorded Cost Explorer
+  spend before using it for chargeback.
+- [ ] Decide whether to pause or fully tear down the optional AWS demo; follow
+  `docs/costs.md` and never let the agent run a mutating AWS command.
 - [ ] Do **not** run `make aws-apply` unless you explicitly want a paid AWS
   demo. The local path costs $0.
 
@@ -288,6 +311,39 @@ are in [docs/SETUP.md](docs/SETUP.md).
   unavailable in this environment. The good/bad walkthrough is in `docs/demo.md`.
 - No AWS resource was created, modified or deleted. PR #17 was approved by
   `@atharvvv10`, merged by `@akashhh15`, and released as `v0.8.0`.
+
+### 2026-11-26 — Phase 10 implemented
+
+- Added `docs/costs.md` with component cost formulas, usage assumptions,
+  `TODO(measure)` items, Cost Explorer request pricing, a tag-coverage contract,
+  OpenCost allocation boundaries, pause guidance and human-only teardown order.
+- Replaced the Infracost action with a pinned `infracost-ci` container that
+  writes `--comment-out-file`. A separate pinned `actions/github-script` job
+  appends the local verdict and upserts one comment using the stable Infracost
+  marker; the pricing container has no PR-write token. Config paths are checked
+  in CI because Infracost silently skips a missing usage file.
+- Added `scripts/cost_guardrail.py` and mocked tests for 10% warn and 25% block
+  thresholds. Added `scripts/cost_report.py` and mocked boto3 tests for
+  paginated Cost Explorer reports, request counts and marker replacement.
+  Added `scripts/tag_coverage_check.py` for static HCL and planned Terraform
+  JSON; wired it into pre-commit, CI and `make validate`.
+- Added the canonical `Project` tag default and matching tfvars examples. The
+  EKS module now tags the node security group for Karpenter discovery.
+- Added a cluster-gated Karpenter ApplicationSet and local Helm chart with
+  `EC2NodeClass`, weighted spot and on-demand `NodePool` resources, fixed AL2023
+  AMI alias, consolidation, disruption budgets and expiry. Account-specific
+  values come from cluster Secret metadata, not committed manifests.
+- Added OpenCost chart 2.5.35 as an Argo CD Application with pinned image
+  digests, a `release: monitoring` ServiceMonitor and disabled plugin installer;
+  added the seventh Grafana dashboard and bumped observability validation to
+  seven dashboards.
+- Added ADR-031 to ADR-035 and updated `docs/SETUP.md`, `docs/VERSIONS.md`,
+  `docs/architecture.md`, the ADR index and `README.md`.
+- Validation: `actionlint` and offline workflow checks passed; ruff check, ruff
+  format, 21 mocked Python tests, dependency check and static tag coverage
+  passed; `bash scripts/helm-lint.sh` rendered the pinned OpenCost and Karpenter
+  values; `make check` passed. No Cost Explorer, Infracost, GitLab, EKS or
+  mutating AWS call was made.
 
 ### 2026-11-25 — Phase 9 implemented
 
