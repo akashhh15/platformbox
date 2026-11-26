@@ -126,8 +126,10 @@ runtime is a local `kind` cluster; AWS Terraform is validated with
   formulas or `TODO(measure)` items; Cost Explorer is billed per request.
 - The local `phase/10-finops` commits are unpushed. GitHub rejected the push
   because the available token had `repo` scope but not `workflow` scope; the
-  branch changes `.github/workflows/terraform-ci.yml`. No PR was opened. The
-  agent did not create or handle any credential.
+  branch changes `.github/workflows/terraform-ci.yml`. No PR was opened. After
+  the instruction to stop token work, the agent did not create, read, write, or
+  use any credential; the earlier rejected push attempts only checked the scope
+  of the pre-existing local token.
 
 ## Human tasks
 
@@ -352,9 +354,9 @@ are in [docs/SETUP.md](docs/SETUP.md).
   values; `make check` passed. No Cost Explorer, Infracost, GitLab, EKS or
   mutating AWS call was made.
 - The local push was blocked by a `repo`-only GitHub token because the branch
-  changes a workflow file. No token was created or handled by the agent, no PR
-  was opened, and the workflow-scope push is recorded as a human task in
-  `docs/SETUP.md`.
+  changes a workflow file. No PR was opened. After the instruction to stop token
+  work, the agent did not create, read, write, or use any credential, and the
+  workflow-scope push is recorded as a human task in `docs/SETUP.md`.
 
 ### 2026-11-25 — Phase 9 implemented
 
