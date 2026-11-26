@@ -5,10 +5,11 @@ progressive delivery, policy-as-code, observability, SLOs, and a supply chain
 that signs what it ships. The AWS EKS production path is written and validated
 with Terraform, but it is optional and is never applied by the agent.
 
-> **Status: Phase 7 — Observability and SLOs.** Dashboards, SLO rules, alerts
-> and runbooks are written and statically validated. GitHub Actions and GitLab
-> CI remain offline-validated; live pipelines need human-supplied tokens and
-> OIDC roles. The local platform and its application manifests run on `kind`.
+> **Status: Phase 9 — Resilience.** k6 profiles, opt-in chaos experiments, a
+> game-day template and an honest backup/DR boundary are written and statically
+> validated; no fault was injected by the agent. GitHub Actions and GitLab CI
+> remain offline-validated; live pipelines need human-supplied tokens and OIDC
+> roles. The local platform and its application manifests run on `kind`.
 > See [PROGRESS.md](PROGRESS.md) for the phase plan and current state, and
 > [docs/architecture.md](docs/architecture.md) for the delivery model.
 
@@ -123,7 +124,10 @@ make local-smoke
 `make local-up` installs the platform with Argo CD. `make local-smoke` builds the
 three app images, deploys them with in-cluster PostgreSQL and Redis, and checks
 the HTTP endpoints. `make demo` prepares a reviewable canary demo branch; both
-outcomes are scripted in [docs/demo.md](docs/demo.md). Full instructions are in
+outcomes are scripted in [docs/demo.md](docs/demo.md). Load profiles are opt-in
+through `make loadtest SCENARIO=smoke|load|spike`, and chaos experiments are
+never applied automatically; see [docs/resilience.md](docs/resilience.md) and
+[chaos/README.md](chaos/README.md). Full instructions are in
 [docs/SETUP.md](docs/SETUP.md).
 
 On Linux and macOS, install GNU Make and the pinned tools with your package
@@ -145,7 +149,10 @@ No measurements are claimed yet. The following will be filled with real data:
 
 - `TODO(measure):` cold-start time for `make local-up` on the reference machine.
 - `TODO(measure):` canary promotion and rollback timings from Phase 8.
-- `TODO(measure):` API p95 latency and error rate under the k6 load profile.
+- `TODO(measure):` API p95 latency and error rate under the k6 load profiles.
+- `TODO(measure):` pod replacement and node drain timings from the Phase 9 game
+  day.
+- `TODO(measure):` RDS snapshot restore time from the human-run drill.
 - `TODO(measure):` resource requests versus observed usage on kind.
 - `TODO(measure):` optional AWS cost from a real short-lived demo, if one is run.
 
@@ -158,8 +165,10 @@ No measurements are claimed yet. The following will be filled with real data:
 - [docs/adr/](docs/adr/) — architecture decisions, starting with ADR-000.
 - [docs/threat-model.md](docs/threat-model.md) — assets, trust boundaries,
   STRIDE controls and residual risks.
-- [docs/architecture.md](docs/architecture.md) — GitOps, SLO math and the
-  local-versus-AWS observability boundary.
+- [docs/architecture.md](docs/architecture.md) — GitOps, SLO math, the
+  local-versus-AWS observability boundary and the DR boundary.
+- [docs/resilience.md](docs/resilience.md) — load profiles, HPA/Karpenter proof,
+  PDB/drain procedure and backup/restore steps.
 - [docs/log-queries.md](docs/log-queries.md) — saved LogQL queries and the
   structured fields that make them work.
 - [docs/runbooks/](docs/runbooks/) — one runbook per alert.

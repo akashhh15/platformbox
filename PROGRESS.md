@@ -12,8 +12,8 @@
 | 5 — CI/CD | Complete — merged and verified | 7 GitHub workflows, GitLab CI with Buildah/Trivy/Syft/Cosign/ECR OIDC, digest write-back, offline workflow validator; PR #13 merged; live pipelines are human-run |
 | 6 — DevSecOps and policy | Complete — merged and verified | Two CEL hardening policies, 35 offline policy tests, threat model, ADR-023; PR #15 merged |
 | 7 — Observability and SLOs | Complete — merged and verified | Six dashboards, SLO recording rules, ten alerts with runbooks, structured logs, worker metrics, opt-in Slack routing; PR #16 merged and `v0.7.0` tagged |
-| 8 — Progressive delivery | Implemented — awaiting review | Weighted canary steps, Prometheus analysis, automatic abort, good/bad demos, notifications, canary dashboard; PR #17 open; offline validation passes |
-| 9 — Resilience (extension) | Not started | k6, chaos, game day, backup and restore |
+| 8 — Progressive delivery | Complete — merged and verified | Weighted canary steps, Prometheus analysis, automatic abort, good/bad demos, notifications, canary dashboard; PR #17 merged; `v0.8.0` tagged |
+| 9 — Resilience (extension) | Implemented — awaiting review | k6 load profiles, opt-in Chaos Mesh experiments, game day, PDB/drain and backup/restore docs; offline validation passes; no fault injected |
 | 10 — FinOps (extension) | Not started | Cost model, optional Infracost, pause and teardown |
 | 11 — Documentation and polish | Not started | Final README, architecture, demo, interview notes |
 | 12 — Final audit | Not started | Security, correctness, reproducibility, cost, docs |
@@ -67,6 +67,9 @@ runtime is a local `kind` cluster; AWS Terraform is validated with
 | 2026-11-25 | Slack routing is generated only on explicitly labelled EKS clusters; kind keeps the chart's null receiver | ADR-025 |
 | 2026-11-25 | Phase 8 uses replica-weighted canaries; ALB routing is rejected for this local-first setup | ADR-026 |
 | 2026-11-25 | Argo CD and Rollouts notifications post to Alertmanager so Slack stays opt-in on both paths | ADR-025, ADR-027 |
+| 2026-11-25 | Chaos Mesh 2.8.8 is cluster-gated and opt-in; kind worker stop replaces an unimplemented spot-interruption drill | ADR-028 |
+| 2026-11-25 | Backup boundary is RDS automated backups plus Git; no Velero, RTO or RPO claim | ADR-029 |
+| 2026-11-25 | k6 profiles use provisional thresholds from ADR-024 with a sustained plateau for HPA proof | ADR-030 |
 
 ## Open items
 
@@ -99,6 +102,16 @@ runtime is a local `kind` cluster; AWS Terraform is validated with
 - Offline evidence was strengthened after review: overlay contract/parity
   assertions (154 checks) and Terraform mock-provider tests for ECR, budgets,
   IRSA and bootstrap now run in `make validate`. ADR-020 records the decision.
+- Phase 8 pull request #17 was approved by `atharvvv10`, merged by `akashhh15`
+  and tagged `v0.8.0`; local `main` was fast-forwarded to merge commit `64a628c`.
+- k6 is pinned to 2.4.0 and Chaos Mesh to chart/app 2.8.8 in
+  `docs/VERSIONS.md`. Chaos Mesh installs only on clusters labelled
+  `platformbox.io/chaos-enabled=true`; no experiment is applied automatically.
+- HPA proof on kind needs metrics-server, which is not installed by `local-up`.
+  `docs/resilience.md` gives the pinned human-run install command and warns not
+  to use `--kubelet-insecure-tls` on EKS.
+- Velero, multi-region failover and a measured RTO/RPO remain unimplemented;
+  the RDS restore drill is a human task in `docs/resilience.md` (ADR-029).
 
 ## Human tasks
 
@@ -127,6 +140,18 @@ are in [docs/SETUP.md](docs/SETUP.md).
 - [x] After the merge, change `gitops/platform/kyverno-policies-app.yaml` to
   `targetRevision: main` if the `phase/3-platform` branch will be deleted. See
   ADR-013.
+- [ ] Run the three k6 profiles in `docs/resilience.md` and replace every
+      `TODO(measure)` value with observed results.
+- [ ] If chaos is wanted, label the Argo CD cluster Secret, annotate `app-dev`
+      and `app-data`, run an experiment from `chaos/README.md`, complete the game
+      day and delete each experiment afterwards.
+- [ ] Run the node drain procedure in `docs/resilience.md` on a disposable kind
+      worker and record the PDB/eviction behaviour.
+- [ ] Perform the RDS snapshot-restore drill only if the optional AWS dev path
+      exists; restore into a separate dev-only identifier and delete it after
+      approval. Never run it against a production database.
+- [ ] Decide whether Velero is worth adding after a real restore need exists;
+      no bucket, IAM or backup data is created in the current local path.
 - [ ] Do **not** run `make aws-apply` unless you explicitly want a paid AWS
   demo. The local path costs $0.
 
@@ -261,8 +286,42 @@ are in [docs/SETUP.md](docs/SETUP.md).
   the Rollouts chart with the Phase 8 values.
 - Runtime rollout verification on kind was not run because the Docker daemon was
   unavailable in this environment. The good/bad walkthrough is in `docs/demo.md`.
-- No AWS resource was created, modified or deleted. PR #17 is open with
-  `@atharvvv10` requested as reviewer and `@akashhh15` assigned as merger.
+- No AWS resource was created, modified or deleted. PR #17 was approved by
+  `@atharvvv10`, merged by `@akashhh15`, and released as `v0.8.0`.
+
+### 2026-11-25 — Phase 9 implemented
+
+- Added k6 2.4.0 smoke, load and spike profiles under `loadtest/`, with pass/fail
+  thresholds, a README and an opt-in `make loadtest SCENARIO=...` target. The
+  load profile holds 50 VUs for five minutes so HPA scale-up and scale-down are
+  observable; ADR-030 records the provisional thresholds.
+- Added Chaos Mesh 2.8.8 as a cluster-gated ApplicationSet. Only a cluster
+  Secret labelled `platformbox.io/chaos-enabled=true` installs it, and namespace
+  filtering limits injection to annotated namespaces. The controller chart uses
+  the containerd socket for kind and disables the dashboard.
+- Added two declarative experiments (`api-pod-kill`, API-to-PostgreSQL latency)
+  with explicit namespaces and label selectors, plus a kind-worker stop script
+  requiring `CONFIRM=stop-kind-worker`. No AWSChaos manifest is committed
+  because it would need static AWS credentials; ADR-028 records the choice.
+- Added `chaos/README.md` with namespace annotations, apply, pause, delete and
+  `docker start` abort commands, and `chaos/gameday-template.md` with a complete
+  pod-kill example whose observed fields stay `TODO(measure)`.
+- Added `docs/resilience.md` covering k6 runs, HPA and Karpenter proof, PDB and
+  node drain, RDS automated backups and a snapshot-restore drill. Velero,
+  multi-region failover and RTO/RPO are explicitly future work (ADR-029).
+- Added an honest `## Disaster recovery` section to `docs/architecture.md` that
+  separates implemented, designed-only and locally unavailable capabilities.
+  Prod Terraform now requests RDS Multi-AZ while dev stays single-AZ.
+- Added `scripts/resilience-validate.sh` and wired it into
+  `scripts/gitops-validate.sh`, the Makefile and the `gitops-validate` workflow.
+  It checks k6 profile options with pinned k6 2.4.0, chaos scoping, the node-stop
+  guard, shell syntax and recovery docs without running a load test or fault.
+- Validation: `bash scripts/resilience-validate.sh` passed; `bash scripts/helm-lint.sh`
+  rendered the pinned Chaos Mesh chart with the committed values; `make check`
+  passed with all overlay contracts, policies, Terraform tests and scans green.
+- No load test, chaos experiment or node drain was executed by the agent because
+  the Docker daemon was unavailable in this environment. No AWS resource was
+  created, modified or deleted; no GitHub or GitLab pipeline was run.
 
 ### 2026-11-21 — Phase 3 implemented
 

@@ -37,6 +37,7 @@ service.
 | gitleaks, hadolint, yamllint, ruff | See [VERSIONS.md](VERSIONS.md) | Secret, Dockerfile, YAML and Python quality |
 | kubeconform, actionlint, promtool | See [VERSIONS.md](VERSIONS.md) | Manifest, workflow and Prometheus rule validation |
 | jq, yq, shellcheck | See [VERSIONS.md](VERSIONS.md) | Scripting helpers |
+| k6 | 2.4.0 | Opt-in load profiles in `loadtest/` |
 
 Exact pinned versions and sources are in [VERSIONS.md](VERSIONS.md). Do not
 upgrade a tool without updating that file and re-running `make check`.
@@ -76,7 +77,7 @@ versions in [VERSIONS.md](VERSIONS.md). For example, on macOS:
 
 ```bash
 brew install make kind kubectl helm kustomize terraform tflint terraform-docs \
-  checkov trivy gitleaks hadolint yamllint kubeconform actionlint jq yq shellcheck
+  checkov trivy gitleaks hadolint yamllint kubeconform actionlint jq yq shellcheck k6
 ```
 
 Then run:
@@ -103,8 +104,11 @@ contract checks. `make test` includes `policy-test`, which runs `kyverno test`
 against compliant, violating and out-of-scope pods for all seven admission
 policies. `make validate` also calls `observability-validate`, which runs
 `promtool check rules`, `promtool test rules`, dashboard JSON checks, alert
-metadata checks and runbook-link checks. Targets for later phases print a clear
-"not implemented until Phase N" message and exit 0.
+metadata checks and runbook-link checks. It also calls
+`scripts/resilience-validate.sh`, which checks k6 profile options, chaos
+experiment scoping and recovery documentation without running a load test or
+injecting a fault. Targets for later phases print a clear "not implemented until
+Phase N" message and exit 0.
 
 ## 4. Local quickstart
 
@@ -437,6 +441,17 @@ These cannot be completed by the agent. Check them off as you go.
       groups, Alertmanager null receiver and a Loki query on kind (§8).
 - [ ] With Docker Desktop running, run the good and bad canary demos and capture
       the screenshots listed in `docs/demo.md`. No AWS resources are involved.
+- [ ] Verify `k6 version` reports 2.4.0 after `make tools`, then run the three
+      profiles in `docs/resilience.md` and replace its `TODO(measure)` values.
+      HPA observations require the pinned metrics-server prerequisite in that
+      document; do not add `--kubelet-insecure-tls` on EKS.
+- [ ] If chaos is wanted, label the Argo CD cluster Secret with
+      `platformbox.io/chaos-enabled=true`, annotate `app-dev`/`app-data` with
+      `chaos-mesh.org/inject=enabled`, then run the experiments and game day
+      from `chaos/README.md`. Delete each experiment after the exercise.
+- [ ] Perform the RDS snapshot/PITR restore drill in `docs/resilience.md` only
+      if the optional AWS dev path exists. Restore into a separate dev-only
+      identifier and delete it after approval.
 - [ ] Decide whether to run the optional AWS path; if yes, complete the AWS
       account, MFA and budget steps above.
 - [ ] If you deploy to EKS, register the cluster in Argo CD with the label

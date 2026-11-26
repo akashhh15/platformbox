@@ -8,10 +8,14 @@ on:
       - scripts/gitops-validate.sh
       - scripts/observability-validate.sh
       - scripts/progressive-validate.sh
+      - scripts/resilience-validate.sh
       - scripts/demo-canary-good.sh
       - scripts/demo-canary-bad.sh
       - scripts/helm-lint.sh
+      - chaos/**
+      - loadtest/**
       - docs/demo.md
+      - docs/resilience.md
       - docs/runbooks/**
       - .yamllint.yaml
       - .github/workflows/gitops-validate.yml
@@ -22,10 +26,14 @@ on:
       - scripts/gitops-validate.sh
       - scripts/observability-validate.sh
       - scripts/progressive-validate.sh
+      - scripts/resilience-validate.sh
       - scripts/demo-canary-good.sh
       - scripts/demo-canary-bad.sh
       - scripts/helm-lint.sh
+      - chaos/**
+      - loadtest/**
       - docs/demo.md
+      - docs/resilience.md
       - docs/runbooks/**
       - .yamllint.yaml
       - .github/workflows/gitops-validate.yml
@@ -99,6 +107,17 @@ jobs:
             --strip-components=1 prometheus-3.16.0.linux-amd64/promtool
           promtool --version
 
+      - name: Install k6
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /tmp/k6.tar.gz \
+            'https://github.com/grafana/k6/releases/download/v2.4.0/k6-v2.4.0-linux-amd64.tar.gz'
+          checksum='5a5ecf23529ccf93135bc7e5b0c1cd5126ecf5f2672e22eed1556a0ab74abb87'
+          echo "$checksum  /tmp/k6.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/k6.tar.gz -C /usr/local/bin \
+            --strip-components=1 k6-v2.4.0-linux-amd64/k6
+          k6 version
+
       - name: Set up Helm
         uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e
         with:
@@ -109,6 +128,9 @@ jobs:
 
       - name: Validate Prometheus rules and dashboards
         run: bash scripts/observability-validate.sh
+
+      - name: Validate resilience profiles and experiments
+        run: bash scripts/resilience-validate.sh
 
       - name: Run Kyverno policy unit tests
         run: bash scripts/policy-test.sh

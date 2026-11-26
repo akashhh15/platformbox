@@ -1,0 +1,54 @@
+# Chaos Mesh is opt-in. Only a registered cluster Secret carrying
+# platformbox.io/chaos-enabled=true generates this Application, so the default
+# kind demo does not run controller, webhook or daemon pods. See ADR-028.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: chaos-mesh
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            argocd.argoproj.io/secret-type: cluster
+            platformbox.io/chaos-enabled: "true"
+  template:
+    metadata:
+      name: '{{.nameNormalized}}-chaos-mesh'
+      namespace: argocd
+      annotations:
+        argocd.argoproj.io/sync-wave: "8"
+    spec:
+      project: platform
+      source:
+        chart: chaos-mesh
+        repoURL: https://charts.chaos-mesh.org
+        targetRevision: 2.8.8
+        helm:
+          values: |
+            # kind uses containerd. EKS also uses containerd on current AMIs.
+            clusterScoped: true
+            controllerManager:
+              replicaCount: 1
+              # Experiments only work in namespaces annotated with
+              # chaos-mesh.org/inject=enabled (chaos/README.md).
+              enableFilterNamespace: true
+            chaosDaemon:
+              runtime: containerd
+              socketPath: /run/containerd/containerd.sock
+            dashboard:
+              create: false
+      destination:
+        server: '{{.server}}'
+        namespace: chaos-mesh
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - ClientSideApplyMigration=false

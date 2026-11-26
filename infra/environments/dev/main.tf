@@ -160,6 +160,7 @@ module "rds" {
   vpc_id                 = module.network.vpc_id
   private_subnet_ids     = module.network.private_subnet_ids
   node_security_group_id = module.eks.node_security_group_id
+  multi_az               = false
   tags                   = var.tags
 }
 

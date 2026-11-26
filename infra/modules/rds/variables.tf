@@ -41,6 +41,12 @@ variable "allocated_storage" {
   default     = 20
 }
 
+variable "multi_az" {
+  type        = bool
+  description = "Whether RDS runs synchronously in two Availability Zones."
+  default     = false
+}
+
 variable "database_name" {
   type        = string
   description = "Name of the initial database."

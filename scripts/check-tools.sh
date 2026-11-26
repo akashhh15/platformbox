@@ -11,7 +11,7 @@ export PATH="$ROOT/.venv/Scripts:$ROOT/tools/bin:$PATH"
 
 required=(
   make terraform tflint terraform-docs trivy gitleaks hadolint
-  pre-commit yamllint ruff pytest checkov
+  pre-commit yamllint ruff pytest checkov k6
 )
 optional=(
   git docker kind kubectl helm kustomize kubeconform actionlint jq yq
@@ -48,6 +48,7 @@ version_of() {
     promtool) promtool --version 2>&1 | head -n 1 ;;
     infracost) infracost --version 2>&1 | head -n 1 ;;
     shellcheck) shellcheck --version 2>&1 | grep -m1 'version:' ;;
+    k6) k6 version 2>&1 | head -n 1 ;;
     *) "$1" --version 2>&1 | head -n 1 ;;
   esac
 }

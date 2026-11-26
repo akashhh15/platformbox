@@ -69,7 +69,7 @@ resource "aws_iam_role_policy_attachment" "rds_monitoring" {
 }
 resource "aws_db_instance" "this" {
   # checkov:skip=CKV_AWS_353:performance insights adds cost; enable in prod if needed
-  # checkov:skip=CKV_AWS_157:Multi-AZ is enabled in prod; dev uses single-AZ for cost
+  # checkov:skip=CKV_AWS_157:Prod sets multi_az=true; dev stays single-AZ for cost
   # checkov:skip=CKV2_AWS_30:query logging requires a custom parameter group; enable in prod
   count = var.enabled ? 1 : 0
 
@@ -82,6 +82,7 @@ resource "aws_db_instance" "this" {
   allocated_storage = var.allocated_storage
   storage_type      = "gp3"
   storage_encrypted = true
+  multi_az          = var.multi_az
 
   db_name  = var.database_name
   username = var.master_username

@@ -7,7 +7,7 @@ as the version change.
 Verification date for this table: **2026-11-22**. Earlier entries were verified
 on 2026-11-21; the Phase 4 additions below were verified on 2026-11-22. Phase 7
 interface checks were verified again on **2026-11-25**; see the Phase 7 section
-below.
+below. Phase 9 versions and interfaces were verified on **2026-11-25**.
 
 ## Local toolchain
 
@@ -41,6 +41,7 @@ below.
 | jq | 1.8.2 | Pinned | `jqlang/jq` GitHub release |
 | yq | 4.54.3 | Pinned | `mikefarah/yq` GitHub release |
 | shellcheck | 0.11.0 | Pinned | `koalaman/shellcheck` GitHub release |
+| k6 | 2.4.0 | Pinned; `k6 version` verified locally | `grafana/k6` GitHub release and published checksums |
 | Docker CLI | 29.9.3 | Verified client version | Local Docker Desktop installation |
 | AWS CLI | 2.42.1 | Pinned | `awscli.amazonaws.com`, SHA-256 recorded in the Phase 5 CI pins |
 
@@ -173,6 +174,7 @@ SHA form, never the tag.
 
 | Binary downloaded in CI | Version | SHA-256 |
 |---|---|---|
+| `k6-v2.4.0-linux-amd64.tar.gz` | 2.4.0 | `5a5ecf23529ccf93135bc7e5b0c1cd5126ecf5f2672e22eed1556a0ab74abb87` |
 | `actionlint_1.7.12_linux_amd64.tar.gz` | 1.7.12 | `8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8` |
 | `kustomize_v5.8.3_linux_amd64.tar.gz` | 5.8.3 | `cb9e31198d3f63b44848bd0afc4c8efc56e6cfef9c93a4a39a211940e6decd61` |
 | `kubeconform-linux-amd64.tar.gz` | 0.8.0 | `9bc2bffbf71f261128533edaf912153948b7ff238f9a531ae6d34466ec287883` |
@@ -220,6 +222,23 @@ These facts were checked against official documentation and the pinned charts on
 | Argo CD chart 10.18.2 and 7.0.0 | Both render `argocd-notifications-cm` from `notifications.notifiers/templates/triggers/subscriptions` | `helm template` of both pinned chart versions |
 | Alertmanager v0.27.0 | `POST /api/v2/alerts` requires `Content-Type: application/json` and an array of alerts with `labels`, optional `annotations` and optional timestamps | [Alerts API](https://prometheus.io/docs/alerting/latest/alerts_api/) |
 
+## Phase 9 interface verification
+
+These facts were checked against official documentation and the pinned releases
+on 2026-11-25. No load test or fault injection was executed.
+
+| Component | Verified interface | Evidence |
+|---|---|---|
+| k6 2.4.0 | `k6 inspect` reports `vus`, `duration`, `stages` and `thresholds`; a breached threshold exits 99; option precedence is CLI > `K6_*` env > script options > config | [k6 options](https://grafana.com/docs/k6/latest/using-k6/k6-options/reference/) and [thresholds](https://grafana.com/docs/k6/latest/using-k6/thresholds/) |
+| k6 2.4.0 Windows archive | `k6-v2.4.0-windows-amd64.zip` SHA-256 `aaa90b3afc336faf90172c7addf45c4f41305f6f188e3d564f79466e80ac68e3` | Published checksums file, verified locally during `make tools` |
+| Chaos Mesh chart 2.8.8 | Chart and app version both 2.8.8; `chaosDaemon.runtime`, `chaosDaemon.socketPath`, `clusterScoped`, `controllerManager.enableFilterNamespace`, `controllerManager.replicaCount` and `dashboard.create` are supported values | Pulled chart and `helm template` of the pinned values |
+| Chaos Mesh 2.8.8 | Namespace filtering uses `chaos-mesh.org/inject=enabled`; `pod-kill` is one-shot and ignores `duration`; `NetworkChaos` needs an explicit `direction`; deleting an experiment restores the fault and `experiment.chaos-mesh.org/pause=true` pauses it | [Install](https://chaos-mesh.org/docs/production-installation-using-helm/), [namespace filtering](https://chaos-mesh.org/docs/configure-enabled-namespace/), [PodChaos](https://chaos-mesh.org/docs/simulate-pod-chaos-on-kubernetes/), [NetworkChaos](https://chaos-mesh.org/docs/simulate-network-chaos-on-kubernetes/) |
+| Chaos Mesh 2.8.8 | No `NodeChaos` CRD exists; `AWSChaos` supports `ec2-stop`, `ec2-restart` and `detach-volume`, needs `secretName` and has no spot-interruption action | [AWSChaos docs](https://chaos-mesh.org/docs/simulate-aws-chaos/) and chart CRDs |
+| Chaos Mesh chart repository | Index digest `35f3caded3d33428d0864eb6d6ece97a5d859a1c0a6e49020fb4d07dd3676bdf` | `helm repo add chaos-mesh https://charts.chaos-mesh.org` and `helm repo update` |
+| metrics-server 0.9.1 | `components.yaml` SHA-256 `3c7f57cdbee0f57fb0259a150e8f6d6cb4f29d72d1aa5dce8803151dd6d4c2a1`; kind needs `--kubelet-insecure-tls`, EKS does not | [metrics-server releases](https://github.com/kubernetes-sigs/metrics-server/releases/tag/v0.9.1) and [requirements](https://github.com/kubernetes-sigs/metrics-server#requirements) |
+| metrics-server chart 3.14.0 | App version 0.9.0; the upstream `components.yaml` release is used for the human-run HPA prerequisite, not a Helm Application | `helm search repo metrics-server/metrics-server --versions` |
+| HPA timing | Sync period defaults to 15s, CPU target is a percentage of container requests, downscale stabilisation defaults to 300s; prove scale-up with a sustained plateau | [HPA walkthrough](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale-walkthrough/) |
+
 ## Platform versions to pin in later phases
 
 These are intentionally unresolved until the phase that needs them. Resolve
@@ -232,4 +251,3 @@ them against current official documentation, then add the exact version here.
 | Application base images | 2 | Pinned by tag and digest in the Dockerfiles |
 | GitHub Actions | 5 | Resolved in the Phase 5 CI pins table above |
 | GitLab CI images | 5 | Resolved in the Phase 5 CI pins table above |
-| k6, Chaos Mesh | 9 | Extension phase |

@@ -9,6 +9,7 @@ resources:
   - logging.yaml
   - observability
   - alertmanager-slack-applicationset.yaml
+  - chaos-mesh-applicationset.yaml
   - argo-rollouts.yaml
   - apps-applicationset.yaml
   - aws-secrets-store-applicationset.yaml

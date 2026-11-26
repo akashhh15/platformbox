@@ -1,0 +1,17 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: api-pod-kill-dev
+  namespace: app-dev
+  labels:
+    app.kubernetes.io/name: api
+    platformbox.io/chaos: opt-in
+spec:
+  # pod-kill is one-shot; Chaos Mesh ignores duration for this action.
+  action: pod-kill
+  mode: one
+  selector:
+    namespaces:
+      - app-dev
+    labelSelectors:
+      app.kubernetes.io/name: api

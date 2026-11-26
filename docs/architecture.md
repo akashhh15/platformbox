@@ -240,6 +240,24 @@ scripts and checks the demo patch contracts. `bash scripts/helm-lint.sh`
 additionally renders the shared Argo CD values against charts 10.18.2 and 7.0.0
 and the Rollouts values against chart 2.38.0.
 
+## Disaster recovery
+
+This section describes the current boundary, not a target state. Full commands
+and `TODO(measure)` evidence are in [docs/resilience.md](resilience.md).
+
+| Capability | Status | Evidence or limitation |
+|---|---|---|
+| Rebuild cluster resources from Git | Implemented locally | Root Argo CD Application syncs `gitops/platform`; `make local-up` recreates `kind`. |
+| Pod and node disruption tolerance | Implemented and validated offline | One PDB per app, `maxUnavailable: 1`, HPA ceilings and topology spread; contracts run in `make check`. Runtime drain is human-run. |
+| RDS point-in-time recovery | Configured, restore drill not run | `backup_retention_period = 7`, encryption, final snapshot and deletion protection in `infra/modules/rds`. Prod requests Multi-AZ; dev does not. |
+| Velero backup to S3 | Designed, not implemented | Needs a bucket, IAM and a tested restore path. No claim is made. |
+| Multi-region failover | Designed, not implemented | No region-2 infrastructure, traffic failover or measured RTO/RPO exists. |
+| Local data durability | Not provided | `kind` PostgreSQL uses `emptyDir`; Prometheus and Loki are ephemeral; `make down` deletes them. |
+
+There is no measured recovery time objective or recovery point objective.
+`TODO(measure):` run the snapshot-restore and node-drain drills in
+`docs/resilience.md` before stating either figure.
+
 ## What is not proven locally
 
 - ALB target groups, ACM certificates and ExternalDNS.
@@ -254,6 +272,11 @@ and the Rollouts values against chart 2.38.0.
 - Analysis queries are syntax-checked offline and the full rollback path is
   documented in [docs/demo.md](demo.md); no sustained production traffic has
   been generated here.
+- Chaos Mesh installation and experiments are opt-in and validated offline;
+  no fault was injected by the agent. The kind worker stop is the local node
+  substitute for an unimplemented EKS spot-interruption drill (ADR-028).
+- RDS snapshot/PITR restore, Velero, Multi-AZ failover automation and
+  multi-region failover are not executed (ADR-029).
 
 ## References
 
@@ -265,3 +288,7 @@ and the Rollouts values against chart 2.38.0.
 - [ADR-018: Canary strategy without steps](adr/ADR-018-canary-without-steps.md)
 - [ADR-026: Replica-weighted canary](adr/ADR-026-replica-weighted-canary.md)
 - [ADR-027: Argo notifications via Alertmanager](adr/ADR-027-argo-notifications-via-alertmanager.md)
+- [ADR-028: Opt-in Chaos Mesh](adr/ADR-028-chaos-mesh-opt-in.md)
+- [ADR-029: Backup boundary](adr/ADR-029-backup-boundary.md)
+- [ADR-030: k6 profiles and thresholds](adr/ADR-030-k6-profiles-and-thresholds.md)
+- [Resilience procedures](resilience.md)
