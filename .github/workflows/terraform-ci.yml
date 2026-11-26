@@ -84,6 +84,27 @@ jobs:
       - name: Checkov
         run: checkov -d infra --framework terraform --quiet --compact
 
+      - name: Check Infracost config paths
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          import yaml
+
+          config = yaml.safe_load(Path("infracost.yml").read_text(encoding="utf-8"))
+          assert config["version"] == "0.3", "unsupported Infracost config version"
+          for project in config["projects"]:
+              path = Path(project["path"])
+              assert path.is_dir(), f"missing project path: {path}"
+              for var_file in project.get("terraform", {}).get("var_files", []):
+                  resolved = path / var_file
+                  assert resolved.is_file(), f"missing tfvars: {resolved}"
+              usage_file = project.get("usage_file")
+              if usage_file:
+                  assert Path(usage_file).is_file(), f"missing usage file: {usage_file}"
+          print(f"PASS: {len(config['projects'])} Infracost project configurations")
+          PY
+
   plan:
     name: plan dev
     runs-on: ubuntu-latest
@@ -99,6 +120,11 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+        with:
+          python-version: '3.12'
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e
@@ -141,7 +167,11 @@ jobs:
             exit 1
           fi
           terraform show -no-color tfplan > plan-summary.txt
+          terraform show -json tfplan > plan.json
           echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+
+      - name: Check planned tag coverage
+        run: python scripts/tag_coverage_check.py --plan-json infra/environments/dev/plan.json
 
       - name: Upload plan summary
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
@@ -150,6 +180,7 @@ jobs:
           path: |
             infra/environments/dev/plan.txt
             infra/environments/dev/plan-summary.txt
+            infra/environments/dev/plan.json
           retention-days: 7
 
       - name: Comment plan summary
@@ -187,22 +218,30 @@ jobs:
     name: cost estimate
     runs-on: ubuntu-latest
     if: github.event.pull_request.head.repo.full_name == github.repository
+    container:
+      image: ghcr.io/infracost/ci@sha256:e7ddb5c9026624456b47ec4208da00ef942ee390b29cb331d648b8c0d8731ee5
+    outputs:
+      configured: ${{ steps.infracost-config.outputs.configured }}
     permissions:
       contents: read
-      pull-requests: write
     env:
-      INFRACOST_API_KEY: ${{ secrets.INFRACOST_API_KEY }}
+      INFRACOST_CLI_AUTHENTICATION_TOKEN: ${{ secrets.INFRACOST_CLI_AUTHENTICATION_TOKEN }}
+      INFRACOST_VCS_PROVIDER: github
+      INFRACOST_VCS_REPOSITORY_URL: ${{ github.server_url }}/${{ github.repository }}
     steps:
       - name: Check Infracost configuration
         id: infracost-config
         shell: bash
         run: |
-          if [ -n "$INFRACOST_API_KEY" ]; then
+          if [ -n "${INFRACOST_CLI_AUTHENTICATION_TOKEN:-}" ]; then
             echo "configured=true" >> "$GITHUB_OUTPUT"
           else
-            echo "INFRACOST_API_KEY is not set; skipping cost estimate."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "INFRACOST_CLI_AUTHENTICATION_TOKEN is not set; skipping cost estimate."
           fi
+
       - name: Checkout base branch
+        if: steps.infracost-config.outputs.configured == 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.event.pull_request.base.sha }}
@@ -210,17 +249,115 @@ jobs:
           persist-credentials: false
 
       - name: Checkout pull request head
+        if: steps.infracost-config.outputs.configured == 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           path: head
           persist-credentials: false
 
-      - name: Post Infracost diff
+      # --comment-out-file needs no PR-write token. The guardrail job below
+      # appends its verdict and upserts one comment with a stable marker.
+      - name: Generate Infracost diff comment
         if: steps.infracost-config.outputs.configured == 'true'
-        uses: infracost/actions/diff@a5783eb98adc93aa7a0049fce0abb06fdd30770a
+        shell: bash
+        run: |
+          set -euo pipefail
+          infracost-ci diff \
+            --base-path base \
+            --head-path head \
+            --comment-out-file infracost-comment.md
+          test -s infracost-comment.md
+
+      - name: Upload Infracost comment
+        if: steps.infracost-config.outputs.configured == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
-          api-key: ${{ secrets.INFRACOST_API_KEY }}
-          base-path: base/infra/environments/dev
-          head-path: head/infra/environments/dev
-          version: sha256:e7ddb5c9026624456b47ec4208da00ef942ee390b29cb331d648b8c0d8731ee5
-          github-token: ${{ github.token }}
+          name: infracost-comment
+          path: infracost-comment.md
+          retention-days: 7
+
+  cost-guardrail:
+    name: cost guardrail and PR comment
+    needs: infracost
+    if: needs.infracost.outputs.configured == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout pull request head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Install guardrail dependencies
+        run: python -m pip install --requirement requirements-dev.txt
+
+      - name: Download Infracost comment
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: infracost-comment
+          path: infracost-diff
+
+      - name: Apply cost thresholds
+        id: guardrail
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH=scripts python scripts/cost_guardrail.py \
+            --comment infracost-diff/infracost-comment.md \
+            --warn-percent 10 \
+            --block-percent 25 \
+            --output "$GITHUB_OUTPUT" \
+            --summary-out guardrail-summary.md
+          {
+            printf '\n'
+            cat guardrail-summary.md
+          } >> infracost-diff/infracost-comment.md
+
+      - name: Upsert Infracost PR comment
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        with:
+          script: |
+            const fs = require('fs');
+            const marker = '[//]: <> (infracost-comment';
+            const body = fs.readFileSync('infracost-diff/infracost-comment.md', 'utf8');
+            if (!body.includes(marker)) {
+              throw new Error('Infracost comment is missing its stable tag');
+            }
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              per_page: 100,
+            });
+            const existing = comments.find((comment) => comment.body?.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+      - name: Fail on blocked cost increase
+        if: steps.guardrail.outputs.blocked == 'true'
+        shell: bash
+        run: |
+          echo "::error::Monthly cost increase is at or above the 25% block threshold."
+          exit 1
