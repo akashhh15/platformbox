@@ -27,9 +27,9 @@ repos:
     hooks:
       - id: ruff
         args: [--fix]
-        files: ^apps/.*\.py$
+        files: ^(apps|scripts)/.*\.py$
       - id: ruff-format
-        files: ^apps/.*\.py$
+        files: ^(apps|scripts)/.*\.py$
 
   - repo: https://github.com/antonbabenko/pre-commit-terraform
     rev: v1.109.5
@@ -71,6 +71,12 @@ repos:
         entry: hadolint
         language: system
         files: (^|/)Dockerfile$
+      - id: tag-coverage
+        name: tag-coverage
+        entry: python scripts/tag_coverage_check.py --root infra
+        language: system
+        files: ^infra/.*\.tf$
+        pass_filenames: false
 
   - repo: https://github.com/compilerla/conventional-pre-commit
     rev: v4.5.0

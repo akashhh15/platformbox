@@ -19,7 +19,8 @@ TOOLS_BIN := tools/bin
 export PATH := $(CURDIR)/$(VENV_BIN):$(CURDIR)/$(TOOLS_BIN):$(PATH)
 
 .PHONY: help tools tools-check pre-commit-install fmt lint validate scan test check \
-        terraform-test contract workflows-validate policy-test local-up local-down up down demo \
+        terraform-test contract workflows-validate policy-test tag-coverage python-test \
+        local-up local-down up down demo \
         gitops-validate observability-validate resilience-validate loadtest \
         local-smoke aws-plan aws-apply clean
 
@@ -52,8 +53,12 @@ lint: workflows-validate ## Run all linters and format checks
 workflows-validate: ## Validate GitHub and GitLab CI configuration offline
 	@bash scripts/validate-workflows.sh
 
-validate: terraform-test gitops-validate contract ## Validate Terraform, Kubernetes and GitOps manifests
+validate: terraform-test gitops-validate contract tag-coverage ## Validate Terraform, Kubernetes and GitOps manifests
 	@echo "==> All validation gates passed."
+
+tag-coverage: ## Check every taggable AWS resource has cost-allocation tags
+	@echo "==> Static tag coverage"
+	@$(PYTHON) scripts/tag_coverage_check.py --root infra
 
 terraform-test: ## Run Terraform mock-provider contract tests (no AWS calls)
 	@echo "==> Terraform contract tests (mock provider)"
@@ -75,7 +80,7 @@ scan: ## Run secret and IaC security scans
 	@echo "==> IaC scan (checkov)"
 	@bash scripts/checkov.sh -d . --compact --quiet
 
-test: policy-test ## Run unit and integration tests
+test: policy-test python-test ## Run unit and integration tests
 	@if [ -d apps/api/tests ]; then (cd apps/api && PYTHONPATH=src pytest -q); fi
 	@if [ -d apps/worker/tests ]; then (cd apps/worker && PYTHONPATH=src pytest -q); fi
 	@if [ ! -d apps/api/tests ] && [ ! -d apps/worker/tests ]; then \
@@ -132,6 +137,10 @@ loadtest: ## Run a k6 scenario (SCENARIO=smoke|load|spike; BASE_URL optional)
 
 policy-test: ## Run Kyverno unit tests against compliant and violating pods
 	@bash scripts/policy-test.sh
+
+python-test: ## Run repository Python tests (FinOps helpers)
+	@echo "==> Python unit tests"
+	@PYTHONPATH=scripts $(PYTHON) -m pytest -q scripts/test_*.py
 
 local-smoke: ## Deploy the app on kind with local Postgres, Redis and fake secrets
 	@bash scripts/local-smoke.sh
