@@ -14,7 +14,7 @@
 | 7 — Observability and SLOs | Complete — merged and verified | Six dashboards, SLO recording rules, ten alerts with runbooks, structured logs, worker metrics, opt-in Slack routing; PR #16 merged and `v0.7.0` tagged |
 | 8 — Progressive delivery | Complete — merged and verified | Weighted canary steps, Prometheus analysis, automatic abort, good/bad demos, notifications, canary dashboard; PR #17 merged; `v0.8.0` tagged |
 | 9 — Resilience (extension) | Complete — merged and verified | k6 load profiles, opt-in Chaos Mesh experiments, game day, PDB/drain and backup/restore docs; PR #18 approved by `@atharvvv10`, merged by `@akashhh15`, tagged `v0.9.0`; no fault injected |
-| 10 — FinOps (extension) | Implemented — awaiting review | Cost formulas, Infracost guardrails, spot-first Karpenter parameters, OpenCost dashboard, Cost Explorer report, pause and teardown; offline validation passes; no live cost API call |
+| 10 — FinOps (extension) | Implemented locally — human push pending | Cost formulas, Infracost guardrails, spot-first Karpenter parameters, OpenCost dashboard, Cost Explorer report, pause and teardown; offline validation passes; no live cost API call; push blocked by workflow-scope credential |
 | 11 — Documentation and polish | Not started | Final README, architecture, demo, interview notes |
 | 12 — Final audit | Not started | Security, correctness, reproducibility, cost, docs |
 
@@ -124,6 +124,10 @@ runtime is a local `kind` cluster; AWS Terraform is validated with
   resources (ADR-033).
 - No actual AWS cost has been measured. All figures in `docs/costs.md` are
   formulas or `TODO(measure)` items; Cost Explorer is billed per request.
+- The local `phase/10-finops` commits are unpushed. GitHub rejected the push
+  because the available token had `repo` scope but not `workflow` scope; the
+  branch changes `.github/workflows/terraform-ci.yml`. No PR was opened. The
+  agent did not create or handle any credential.
 
 ## Human tasks
 
@@ -164,6 +168,9 @@ are in [docs/SETUP.md](docs/SETUP.md).
       approval. Never run it against a production database.
 - [ ] Decide whether Velero is worth adding after a real restore need exists;
       no bucket, IAM or backup data is created in the current local path.
+- [ ] Push `phase/10-finops` with your own `repo` + `workflow` GitHub credential,
+  open the PR, request review from `@atharvvv10` and merge through `@akashhh15`.
+  Do not push to `main`, force push, or create `v0.10.0` without approval.
 - [ ] Set `INFRACOST_CLI_AUTHENTICATION_TOKEN`, open a test PR and confirm the
   single Infracost comment contains the cost table and guardrail verdict.
 - [ ] If EKS is deployed, label/annotate the cluster Secret with the Karpenter
@@ -344,6 +351,10 @@ are in [docs/SETUP.md](docs/SETUP.md).
   passed; `bash scripts/helm-lint.sh` rendered the pinned OpenCost and Karpenter
   values; `make check` passed. No Cost Explorer, Infracost, GitLab, EKS or
   mutating AWS call was made.
+- The local push was blocked by a `repo`-only GitHub token because the branch
+  changes a workflow file. No token was created or handled by the agent, no PR
+  was opened, and the workflow-scope push is recorded as a human task in
+  `docs/SETUP.md`.
 
 ### 2026-11-25 — Phase 9 implemented
 

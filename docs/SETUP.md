@@ -224,6 +224,12 @@ No AWS account, registry credential or domain is needed. Details are in
 For phase pull requests, `@atharvvv10` approves and `@akashhh15` merges. Do not
 self-approve, use an admin bypass, or push directly to `main`.
 
+Pushing a branch that changes `.github/workflows/` requires a human GitHub
+credential with both `repo` and `workflow` scope. The agent does not create,
+read, write, or otherwise handle credentials or tokens. If the local helper
+token is `repo`-only, the human must push with their own workflow-scoped
+credential before a PR can be opened.
+
 ### GitHub secrets
 
 | Name | Used by | Purpose |
@@ -454,6 +460,11 @@ These cannot be completed by the agent. Check them off as you go.
 - [x] Confirm `.github/CODEOWNERS` names the real repository owner.
 - [x] Configure branch protection on `main`.
 - [ ] Add every GitHub secret and variable from section 5.
+- [ ] Push `phase/10-finops` with your own `repo` + `workflow` GitHub credential,
+      open the PR, request review from `@atharvvv10` and merge through
+      `@akashhh15`. The branch changes `.github/workflows/terraform-ci.yml`, so
+      a `repo`-only token is rejected. Do not push to `main`, force push, or
+      create `v0.10.0` without approval.
 - [ ] Create the GitLab project and record its path in `GITLAB_PROJECT_PATH`.
 - [ ] Add every GitLab CI/CD variable from section 6, including the ECR OIDC
       role and registry host.
