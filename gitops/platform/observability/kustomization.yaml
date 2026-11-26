@@ -62,3 +62,12 @@ configMapGenerator:
       labels:
         grafana_dashboard: "1"
         app.kubernetes.io/part-of: platformbox
+  - name: dashboard-cost-by-namespace
+    namespace: monitoring
+    files:
+      - dashboards/cost-by-namespace.json
+    options:
+      disableNameSuffixHash: true
+      labels:
+        grafana_dashboard: "1"
+        app.kubernetes.io/part-of: platformbox

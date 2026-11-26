@@ -77,6 +77,12 @@ module "eks" {
     }
   }
 
+  # Karpenter v1 discovers the node security group by this tag. Keep the value
+  # identical to the `karpenter.sh/discovery` tag on the private subnets.
+  node_security_group_tags = {
+    "karpenter.sh/discovery" = local.cluster_name
+  }
+
   tags = local.common_tags
 }
 

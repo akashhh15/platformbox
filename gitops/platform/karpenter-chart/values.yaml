@@ -1,0 +1,18 @@
+# Values are supplied by the cluster ApplicationSet from the registered cluster
+# Secret. Empty values are rejected by the templates so a misconfigured cluster
+# cannot render a NodePool with the wrong IAM role or discovery tags.
+clusterName: ""
+environment: ""
+nodeRoleArn: ""
+
+project: cloud-platform-in-a-box
+owner: platform-team
+managedBy: karpenter
+
+# Higher weight is preferred when both pools can satisfy a pod.
+spotWeight: 100
+onDemandWeight: 10
+
+# Fixed AL2023 AMI build. Karpenter resolves this alias to the AMI matching the
+# cluster control-plane version; see docs/VERSIONS.md.
+amiAlias: al2023@v20240807

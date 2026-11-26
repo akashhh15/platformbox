@@ -34,6 +34,7 @@ declare -A REPOS=(
   [grafana]=https://grafana.github.io/helm-charts
   [external-secrets]=https://charts.external-secrets.io
   [chaos-mesh]=https://charts.chaos-mesh.org
+  [opencost]=https://opencost.github.io/opencost-helm-chart
 )
 for alias in "${!REPOS[@]}"; do
   "$HELM" repo add "$alias" "${REPOS[$alias]}" --force-update >/dev/null
@@ -50,6 +51,7 @@ CHARTS=(
   "grafana/loki-stack:2.10.2"
   "external-secrets/external-secrets:2.15.0"
   "chaos-mesh/chaos-mesh:2.8.8"
+  "opencost/opencost:2.5.35"
 )
 
 for entry in "${CHARTS[@]}"; do
@@ -96,5 +98,27 @@ yq e '.spec.template.spec.source.helm.values' \
   gitops/platform/chaos-mesh-applicationset.yaml >"$VALUES_WORK/chaos-values.yaml"
 "$HELM" template chaos-mesh "$VALUES_WORK/chaos-mesh-2.8.8" \
   --values "$VALUES_WORK/chaos-values.yaml" >/dev/null
+
+echo "==> Helm values used by Phase 10 OpenCost configuration"
+"$HELM" pull opencost/opencost --version 2.5.35 --destination "$VALUES_WORK" >/dev/null
+printf '%s  %s\n' \
+  '35c5ec2294ab22a2a1fcb14018b45d83cae8e96bf19bff86b9a669335a2836db' \
+  "$VALUES_WORK/opencost-2.5.35.tgz" | sha256sum -c -
+mkdir -p "$VALUES_WORK/opencost-2.5.35"
+tar -xzf "$VALUES_WORK/opencost-2.5.35.tgz" -C "$VALUES_WORK/opencost-2.5.35" --strip-components=1
+yq e '.spec.source.helm.values' gitops/platform/opencost.yaml \
+  >"$VALUES_WORK/opencost-values.yaml"
+"$HELM" template opencost "$VALUES_WORK/opencost-2.5.35" \
+  --values "$VALUES_WORK/opencost-values.yaml" >/dev/null
+
+echo "==> Helm chart used by Phase 10 Karpenter configuration"
+KARPENTER_VALUES=(
+  --set clusterName=platformbox-dev
+  --set environment=dev
+  --set nodeRoleArn=arn:aws:iam::123456789012:role/karpenter-node
+)
+"$HELM" lint gitops/platform/karpenter-chart "${KARPENTER_VALUES[@]}"
+"$HELM" template karpenter gitops/platform/karpenter-chart \
+  "${KARPENTER_VALUES[@]}" >/dev/null
 
 echo "==> Shared Helm values render with all pinned chart versions."

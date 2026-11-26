@@ -10,4 +10,4 @@ public_access_cidrs = ["0.0.0.0/0"] # Restrict to your IP in real use.
 budget_email       = "REPLACE_ME_EMAIL"
 budget_limit_usd   = 50
 rds_enabled        = true
-tags               = {}
+tags               = { Owner = "platform-team" }

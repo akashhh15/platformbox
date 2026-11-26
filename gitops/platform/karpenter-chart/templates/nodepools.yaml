@@ -1,0 +1,85 @@
+# Spot is the default capacity. Higher weight makes Karpenter choose it when
+# both pools can schedule a pod; on-demand is a bounded fallback for capacity
+# shortages and spot interruptions. Consolidation and interruption SQS/EventBridge
+# rules are provisioned by infra/modules/karpenter.
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: {{ include "karpenter-nodepools.clusterName" . }}-spot
+  labels:
+    app.kubernetes.io/name: karpenter-nodepools
+    app.kubernetes.io/part-of: platformbox
+spec:
+  weight: {{ .Values.spotWeight }}
+  limits:
+    cpu: "64"
+    memory: 256Gi
+  disruption:
+    consolidationPolicy: WhenEmptyOrUnderutilized
+    consolidateAfter: 1m
+    budgets:
+      - nodes: 10%
+  template:
+    metadata:
+      labels:
+        platformbox.io/capacity-type: spot
+    spec:
+      expireAfter: 336h
+      nodeClassRef:
+        group: karpenter.k8s.aws
+        kind: EC2NodeClass
+        name: {{ include "karpenter-nodepools.clusterName" . }}
+      requirements:
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values: ["spot"]
+        - key: kubernetes.io/arch
+          operator: In
+          values: ["amd64"]
+        - key: karpenter.k8s.aws/instance-family
+          operator: In
+          values: ["m7i", "m7a", "c7i", "c7a", "t3", "t3a", "m6i", "m6a"]
+        - key: karpenter.k8s.aws/instance-size
+          operator: In
+          values: ["large", "xlarge", "2xlarge"]
+---
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: {{ include "karpenter-nodepools.clusterName" . }}-on-demand
+  labels:
+    app.kubernetes.io/name: karpenter-nodepools
+    app.kubernetes.io/part-of: platformbox
+spec:
+  weight: {{ .Values.onDemandWeight }}
+  limits:
+    cpu: "32"
+    memory: 128Gi
+  disruption:
+    consolidationPolicy: WhenEmptyOrUnderutilized
+    consolidateAfter: 1m
+    budgets:
+      - nodes: 10%
+  template:
+    metadata:
+      labels:
+        platformbox.io/capacity-type: on-demand
+    spec:
+      expireAfter: 336h
+      nodeClassRef:
+        group: karpenter.k8s.aws
+        kind: EC2NodeClass
+        name: {{ include "karpenter-nodepools.clusterName" . }}
+      requirements:
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values: ["on-demand"]
+        - key: kubernetes.io/arch
+          operator: In
+          values: ["amd64"]
+        - key: karpenter.k8s.aws/instance-family
+          operator: In
+          values: ["m7i", "m6i", "c7i", "c6i"]
+        - key: karpenter.k8s.aws/instance-size
+          operator: In
+          values: ["large", "xlarge"]

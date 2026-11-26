@@ -1,0 +1,56 @@
+# One Karpenter NodePool/EC2NodeClass set per registered EKS cluster.
+#
+# The cluster generator only matches Secrets carrying `platformbox.io/target: eks`.
+# The local kind cluster has no such Secret, so nothing is generated locally.
+# Cluster metadata supplies the account-specific values that must not be
+# committed to git:
+#   label      platformbox.io/cluster-name  = EKS cluster name (project-environment)
+#   label      platformbox.io/environment   = dev, staging or prod
+#   annotation platformbox.io/karpenter-node-role = Terraform karpenter_node_role_arn
+# See docs/SETUP.md and ADR-033.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: karpenter-nodepools
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            argocd.argoproj.io/secret-type: cluster
+            platformbox.io/target: eks
+        values:
+          clusterName: '{{ index .metadata.labels "platformbox.io/cluster-name" }}'
+          environment: '{{ index .metadata.labels "platformbox.io/environment" }}'
+          nodeRoleArn: '{{ index .metadata.annotations "platformbox.io/karpenter-node-role" }}'
+  template:
+    metadata:
+      name: '{{ .nameNormalized }}-karpenter'
+      namespace: argocd
+      annotations:
+        argocd.argoproj.io/sync-wave: "4"
+    spec:
+      project: platform
+      source:
+        repoURL: https://github.com/akashhh15/platformbox.git
+        targetRevision: main
+        path: gitops/platform/karpenter-chart
+        helm:
+          values: |
+            clusterName: '{{ .values.clusterName }}'
+            environment: '{{ .values.environment }}'
+            nodeRoleArn: '{{ .values.nodeRoleArn }}'
+      destination:
+        server: '{{ .server }}'
+        namespace: karpenter
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - ClientSideApplyMigration=false

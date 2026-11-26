@@ -8,6 +8,8 @@ repos:
     hooks:
       - id: check-yaml
         args: [--allow-multiple-documents]
+        # Helm templates are Go templates, not standalone YAML documents.
+        exclude: ^gitops/platform/karpenter-chart/templates/
       - id: end-of-file-fixer
       - id: trailing-whitespace
       - id: check-merge-conflict

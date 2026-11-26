@@ -17,3 +17,5 @@ ignore: |
   tools/
   node_modules/
   .git/
+  # Helm templates are Go templates, not standalone YAML documents.
+  gitops/platform/karpenter-chart/templates/

@@ -1,0 +1,84 @@
+{
+  "uid": "platformbox-cost",
+  "title": "PlatformBox / Cost by Namespace",
+  "tags": ["platformbox", "cost", "opencost"],
+  "timezone": "utc",
+  "schemaVersion": 39,
+  "refresh": "1m",
+  "time": {"from": "now-6h", "to": "now"},
+  "panels": [
+    {
+      "id": 1,
+      "title": "What this panel shows",
+      "type": "text",
+      "gridPos": {"h": 4, "w": 24, "x": 0, "y": 0},
+      "options": {
+        "mode": "markdown",
+        "content": "Hourly allocation cost by Kubernetes namespace, calculated from OpenCost node rates and container allocation metrics. Idle capacity and unallocated data-centre costs are intentionally not attributed to namespaces. TODO(measure): compare this panel with recorded AWS Cost Explorer spend before treating it as a bill forecast."
+      }
+    },
+    {
+      "id": 2,
+      "title": "CPU allocation cost by namespace (USD/hour)",
+      "type": "timeseries",
+      "gridPos": {"h": 9, "w": 12, "x": 0, "y": 4},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "custom": {"drawStyle": "line", "fillOpacity": 10}
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (namespace) (container_cpu_allocation * on(node) group_left() avg by (node) (node_cpu_hourly_cost))",
+          "legendFormat": "{{namespace}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Memory allocation cost by namespace (USD/hour)",
+      "type": "timeseries",
+      "gridPos": {"h": 9, "w": 12, "x": 12, "y": 4},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "custom": {"drawStyle": "line", "fillOpacity": 10}
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (namespace) ((container_memory_allocation_bytes / 1073741824) * on(node) group_left() avg by (node) (node_ram_hourly_cost))",
+          "legendFormat": "{{namespace}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Combined allocation cost by namespace (USD/hour)",
+      "type": "timeseries",
+      "gridPos": {"h": 9, "w": 24, "x": 0, "y": 13},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "custom": {"drawStyle": "line", "fillOpacity": 10}
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (namespace) (container_cpu_allocation * on(node) group_left() avg by (node) (node_cpu_hourly_cost)) + sum by (namespace) ((container_memory_allocation_bytes / 1073741824) * on(node) group_left() avg by (node) (node_ram_hourly_cost))",
+          "legendFormat": "{{namespace}}"
+        }
+      ]
+    }
+  ]
+}

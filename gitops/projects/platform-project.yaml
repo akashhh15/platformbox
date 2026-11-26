@@ -14,6 +14,7 @@ spec:
     - https://grafana.github.io/helm-charts
     - https://charts.external-secrets.io
     - https://charts.chaos-mesh.org
+    - https://opencost.github.io/opencost-helm-chart
   destinations:
     - namespace: "*"
       server: https://kubernetes.default.svc

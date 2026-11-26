@@ -48,6 +48,10 @@ variable "rds_enabled" {
 }
 
 variable "tags" {
-  type    = map(string)
-  default = {}
+  type = map(string)
+  # Owner is required for cost allocation; it is merged into every common_tags
+  # map by the modules and into provider default_tags by the root module.
+  default = {
+    Owner = "platform-team"
+  }
 }

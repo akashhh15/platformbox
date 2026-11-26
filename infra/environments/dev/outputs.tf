@@ -22,3 +22,13 @@ output "argocd_namespace" {
   description = "Namespace where Argo CD is installed."
   value       = "argocd"
 }
+
+output "karpenter_node_role_arn" {
+  description = "IAM role ARN for Karpenter-launched nodes; set on the Argo CD cluster Secret."
+  value       = module.karpenter.node_role_arn
+}
+
+output "karpenter_interruption_queue_name" {
+  description = "SQS queue used for Karpenter spot and scheduled-change interruptions."
+  value       = module.karpenter.interruption_queue_name
+}
