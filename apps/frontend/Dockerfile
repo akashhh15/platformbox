@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM nginx:1.27.3-alpine AS runtime
+FROM nginx:1.31.0-alpine AS runtime
 
 # Remove default site and copy our static assets and main config.
 RUN rm -f /etc/nginx/conf.d/default.conf \
